@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TransportTracker.App.Views.MainPage"
+             Title="Public Transport Tracker">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Header -->
+        <VerticalStackLayout Grid.Row="0" Padding="10" BackgroundColor="{StaticResource Primary}">
+            <Label Text="Real-Time Public Transport Tracker" 
+                   FontSize="24" 
+                   TextColor="White"
+                   HorizontalOptions="Center" />
+            <Label Text="Loading transport data..." 
+                   x:Name="StatusLabel"
+                   FontSize="14" 
+                   TextColor="White"
+                   HorizontalOptions="Center" />
+        </VerticalStackLayout>
+        
+        <!-- Main Content - Map will be placed here -->
+        <Grid Grid.Row="1" BackgroundColor="LightGray">
+            <Label Text="Map will be displayed here" 
+                   VerticalOptions="Center" 
+                   HorizontalOptions="Center" />
+        </Grid>
+
+        <!-- Footer with Controls -->
+        <HorizontalStackLayout Grid.Row="2" 
+                             Padding="10" 
+                             Spacing="10"
+                             HorizontalOptions="Center">
+            <Button Text="Refresh Data" 
+                    WidthRequest="150"
+                    HeightRequest="40" />
+            <Button Text="View List" 
+                    WidthRequest="150"
+                    HeightRequest="40" />
+        </HorizontalStackLayout>
+    </Grid>
+</ContentPage>
