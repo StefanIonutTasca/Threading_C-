@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:views="clr-namespace:TransportTracker.UI.Views"
+       Title="Transport Tracker"
+       x:Class="TransportTracker.UI.AppShell"
+       BackgroundColor="{DynamicResource PageBackgroundColor}">
+
+    <Shell.Resources>
+        <ResourceDictionary>
+            <Style x:Key="BaseStyle" TargetType="Element">
+                <Setter Property="Shell.BackgroundColor" Value="{DynamicResource Primary}" />
+                <Setter Property="Shell.ForegroundColor" Value="{DynamicResource TextPrimaryDark}" />
+                <Setter Property="Shell.TitleColor" Value="{DynamicResource TextPrimaryDark}" />
+                <Setter Property="Shell.TabBarBackgroundColor" Value="{DynamicResource SurfaceLight}" />
+                <Setter Property="Shell.TabBarForegroundColor" Value="{DynamicResource Primary}" />
+                <Setter Property="Shell.TabBarUnselectedColor" Value="{DynamicResource TextSecondaryLight}" />
+                <Setter Property="Shell.TabBarTitleColor" Value="{DynamicResource Primary}" />
+            </Style>
+            <Style TargetType="ShellContent" BasedOn="{StaticResource BaseStyle}" />
+        </ResourceDictionary>
+    </Shell.Resources>
+
+    <!-- Main Tab Bar Navigation -->
+    <TabBar>
+        <!-- Map Tab -->
+        <Tab Title="Map" Icon="{StaticResource IconMap}">
+            <ShellContent ContentTemplate="{DataTemplate views:MapPage}" Route="Map" />
+        </Tab>
+        
+        <!-- Vehicles Tab -->
+        <Tab Title="Vehicles" Icon="{StaticResource IconList}">
+            <ShellContent ContentTemplate="{DataTemplate views:VehiclesPage}" Route="Vehicles" />
+        </Tab>
+        
+        <!-- Analytics Tab -->
+        <Tab Title="Analytics" Icon="{StaticResource IconChart}">
+            <ShellContent ContentTemplate="{DataTemplate views:AnalyticsPage}" Route="Analytics" />
+        </Tab>
+        
+        <!-- Settings Tab -->
+        <Tab Title="Settings" Icon="{StaticResource IconSettings}">
+            <ShellContent ContentTemplate="{DataTemplate views:SettingsPage}" Route="Settings" />
+        </Tab>
+    </TabBar>
+
+    <!-- Alternative Flyout Menu -->
+    <Shell.FlyoutHeader>
+        <Grid HeightRequest="200" BackgroundColor="{DynamicResource Primary}">
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center">
+                <Label Text="{StaticResource IconMap}" 
+                       FontFamily="MaterialIcons"
+                       FontSize="48" 
+                       TextColor="{DynamicResource TextPrimaryDark}"
+                       HorizontalOptions="Center" />
+                <Label Text="Transport Tracker" 
+                       FontSize="{StaticResource FontSizeLarge}"
+                       FontAttributes="Bold"
+                       TextColor="{DynamicResource TextPrimaryDark}"
+                       HorizontalOptions="Center"
+                       Margin="0,16,0,0" />
+                <Label Text="Real-time vehicle tracking" 
+                       FontSize="{StaticResource FontSizeNormal}"
+                       TextColor="{DynamicResource TextPrimaryDark}"
+                       HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Grid>
+    </Shell.FlyoutHeader>
+    
+    <FlyoutItem Title="Home" Icon="{StaticResource IconMap}" Route="Main">
+        <ShellContent ContentTemplate="{DataTemplate views:MainPage}" />
+    </FlyoutItem>
+    
+    <FlyoutItem Title="Search" Icon="{StaticResource IconSearch}" Route="Search">
+        <ShellContent ContentTemplate="{DataTemplate views:SearchPage}" />
+    </FlyoutItem>
+    
+    <FlyoutItem Title="Routes" Icon="{StaticResource IconList}" Route="Routes">
+        <ShellContent ContentTemplate="{DataTemplate views:RoutesPage}" />
+    </FlyoutItem>
+    
+    <FlyoutItem Title="Favorites" Icon="{StaticResource IconFavorite}" Route="Favorites">
+        <ShellContent ContentTemplate="{DataTemplate views:FavoritesPage}" />
+    </FlyoutItem>
+    
+    <FlyoutItem Title="Settings" Icon="{StaticResource IconSettings}" Route="Settings">
+        <ShellContent ContentTemplate="{DataTemplate views:SettingsPage}" />
+    </FlyoutItem>
+    
+    <FlyoutItem Title="About" Icon="{StaticResource IconInfo}" Route="About">
+        <ShellContent ContentTemplate="{DataTemplate views:AboutPage}" />
+    </FlyoutItem>
+</Shell>

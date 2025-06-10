@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    x:Class="TransportTracker.UI.Resources.IconFonts">
+    
+    <!-- Material Design Icons (to be used with MaterialIconsFont) -->
+    <x:String x:Key="IconBus">&#xE530;</x:String>
+    <x:String x:Key="IconTrain">&#xE570;</x:String>
+    <x:String x:Key="IconTram">&#xE571;</x:String>
+    <x:String x:Key="IconSubway">&#xE56F;</x:String>
+    <x:String x:Key="IconFerry">&#xE532;</x:String>
+    
+    <x:String x:Key="IconMap">&#xE55B;</x:String>
+    <x:String x:Key="IconList">&#xE896;</x:String>
+    <x:String x:Key="IconChart">&#xE6E1;</x:String>
+    <x:String x:Key="IconSearch">&#xE8B6;</x:String>
+    <x:String x:Key="IconSettings">&#xE8B8;</x:String>
+    
+    <x:String x:Key="IconRefresh">&#xE5D5;</x:String>
+    <x:String x:Key="IconLocation">&#xE55C;</x:String>
+    <x:String x:Key="IconFilter">&#xE3D3;</x:String>
+    <x:String x:Key="IconArrowBack">&#xE5C4;</x:String>
+    <x:String x:Key="IconClose">&#xE5CD;</x:String>
+    
+    <x:String x:Key="IconInfo">&#xE88E;</x:String>
+    <x:String x:Key="IconWarning">&#xE002;</x:String>
+    <x:String x:Key="IconError">&#xE000;</x:String>
+    <x:String x:Key="IconSuccess">&#xE86C;</x:String>
+    
+    <x:String x:Key="IconSort">&#xE164;</x:String>
+    <x:String x:Key="IconFavorite">&#xE87D;</x:String>
+    <x:String x:Key="IconFavoriteBorder">&#xE87E;</x:String>
+    <x:String x:Key="IconClock">&#xE192;</x:String>
+    <x:String x:Key="IconCalendar">&#xE916;</x:String>
+</ResourceDictionary>

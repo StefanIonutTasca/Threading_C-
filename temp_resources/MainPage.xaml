@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TransportTracker.UI.Views.MainPage"
+             Title="Transport Tracker">
+    
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Header -->
+        <Grid Grid.Row="0" Padding="16" BackgroundColor="{DynamicResource Primary}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            
+            <Label Text="Transport Tracker" 
+                   Grid.Column="0"
+                   Style="{StaticResource TitleLabel}"
+                   TextColor="{DynamicResource TextPrimaryDark}" />
+            
+            <Button Grid.Column="1" 
+                    Text="{StaticResource IconSearch}"
+                    BackgroundColor="Transparent"
+                    TextColor="{DynamicResource TextPrimaryDark}"
+                    FontFamily="MaterialIcons"
+                    FontSize="24"
+                    Command="{Binding OpenSearchCommand}" />
+        </Grid>
+        
+        <!-- Main Content -->
+        <RefreshView Grid.Row="1" 
+                     Command="{Binding RefreshCommand}"
+                     IsRefreshing="{Binding IsRefreshing}"
+                     Style="{StaticResource DefaultRefreshView}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16">
+                    <!-- Map Placeholder (will be replaced with actual Map control) -->
+                    <Frame HeightRequest="200" 
+                           Margin="0,0,0,16"
+                           Padding="0"
+                           HasShadow="True"
+                           CornerRadius="8">
+                        <Grid BackgroundColor="{DynamicResource SurfaceLight}">
+                            <Label Text="{StaticResource IconMap}"
+                                   FontFamily="MaterialIcons"
+                                   FontSize="48"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center"
+                                   TextColor="{DynamicResource TextSecondaryLight}" />
+                            <Label Text="Map will be displayed here"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center"
+                                   Margin="0,50,0,0"
+                                   TextColor="{DynamicResource TextSecondaryLight}" />
+                        </Grid>
+                    </Frame>
+                    
+                    <!-- Nearby Vehicles Section -->
+                    <Label Text="Nearby Vehicles" 
+                           Style="{StaticResource SubtitleLabel}" />
+                    
+                    <CollectionView ItemsSource="{Binding NearbyVehicles}"
+                                    SelectionMode="Single"
+                                    SelectionChangedCommand="{Binding VehicleSelectedCommand}"
+                                    SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}}"
+                                    EmptyView="No vehicles nearby"
+                                    Style="{StaticResource DefaultCollectionView}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame Style="{StaticResource CardFrame}">
+                                    <Grid Style="{StaticResource VehicleListItem}">
+                                        <BoxView Grid.Column="0"
+                                                 Grid.RowSpan="3"
+                                                 WidthRequest="4"
+                                                 HeightRequest="60"
+                                                 CornerRadius="2"
+                                                 BackgroundColor="{Binding RouteColor}"
+                                                 Margin="0,0,16,0"
+                                                 VerticalOptions="Center" />
+                                        
+                                        <Label Grid.Column="1"
+                                               Grid.Row="0"
+                                               Text="{Binding RouteName}"
+                                               Style="{StaticResource BodyLabel}"
+                                               FontAttributes="Bold" />
+                                        
+                                        <Label Grid.Column="1"
+                                               Grid.Row="1"
+                                               Text="{Binding Destination}"
+                                               Style="{StaticResource CaptionLabel}" />
+                                        
+                                        <Label Grid.Column="1"
+                                               Grid.Row="2"
+                                               Text="{Binding NextStopTime}"
+                                               Style="{StaticResource CaptionLabel}" />
+                                        
+                                        <Frame Grid.Column="2"
+                                               Grid.Row="0"
+                                               Style="{StaticResource StatusBadge}"
+                                               BackgroundColor="{Binding StatusColor}">
+                                            <Label Text="{Binding StatusText}"
+                                                   TextColor="White"
+                                                   FontSize="{StaticResource FontSizeSmall}" />
+                                        </Frame>
+                                        
+                                        <Label Grid.Column="2"
+                                               Grid.Row="1"
+                                               Text="{Binding VehicleType}"
+                                               Style="{StaticResource CaptionLabel}"
+                                               HorizontalOptions="End" />
+                                        
+                                        <Label Grid.Column="2"
+                                               Grid.Row="2"
+                                               Text="{Binding Distance}"
+                                               Style="{StaticResource CaptionLabel}"
+                                               HorizontalOptions="End" />
+                                    </Grid>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    
+                    <!-- Popular Routes Section -->
+                    <Label Text="Popular Routes" 
+                           Style="{StaticResource SubtitleLabel}"
+                           Margin="0,16,0,8" />
+                    
+                    <CollectionView ItemsSource="{Binding PopularRoutes}"
+                                    SelectionMode="Single"
+                                    SelectionChangedCommand="{Binding RouteSelectedCommand}"
+                                    SelectionChangedCommandParameter="{Binding SelectedItem, Source={RelativeSource Self}}"
+                                    EmptyView="No popular routes"
+                                    Style="{StaticResource DefaultCollectionView}"
+                                    HeightRequest="100">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Horizontal" 
+                                               ItemSpacing="8" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame Style="{StaticResource CardFrame}"
+                                       WidthRequest="120"
+                                       HeightRequest="100">
+                                    <VerticalStackLayout>
+                                        <BoxView HeightRequest="8"
+                                                 BackgroundColor="{Binding RouteColor}"
+                                                 HorizontalOptions="FillAndExpand" />
+                                        <Label Text="{Binding RouteName}"
+                                               Style="{StaticResource BodyLabel}"
+                                               FontAttributes="Bold" />
+                                        <Label Text="{Binding RouteType}"
+                                               Style="{StaticResource CaptionLabel}" />
+                                    </VerticalStackLayout>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+        
+        <!-- Footer Navigation -->
+        <HorizontalStackLayout Grid.Row="2"
+                               BackgroundColor="{DynamicResource SurfaceLight}"
+                               HorizontalOptions="FillAndExpand"
+                               Spacing="0">
+            <Button Text="{StaticResource IconMap}"
+                    FontFamily="MaterialIcons"
+                    BackgroundColor="Transparent"
+                    TextColor="{DynamicResource Primary}"
+                    FontSize="24"
+                    HeightRequest="56"
+                    WidthRequest="{OnPlatform iOS=80, Android=80, WinUI=120}"
+                    Command="{Binding NavigateToMapCommand}" />
+            
+            <Button Text="{StaticResource IconList}"
+                    FontFamily="MaterialIcons"
+                    BackgroundColor="Transparent"
+                    TextColor="{DynamicResource TextSecondaryLight}"
+                    FontSize="24"
+                    HeightRequest="56"
+                    WidthRequest="{OnPlatform iOS=80, Android=80, WinUI=120}"
+                    Command="{Binding NavigateToVehiclesCommand}" />
+            
+            <Button Text="{StaticResource IconChart}"
+                    FontFamily="MaterialIcons"
+                    BackgroundColor="Transparent"
+                    TextColor="{DynamicResource TextSecondaryLight}"
+                    FontSize="24"
+                    HeightRequest="56"
+                    WidthRequest="{OnPlatform iOS=80, Android=80, WinUI=120}"
+                    Command="{Binding NavigateToAnalyticsCommand}" />
+            
+            <Button Text="{StaticResource IconSettings}"
+                    FontFamily="MaterialIcons"
+                    BackgroundColor="Transparent"
+                    TextColor="{DynamicResource TextSecondaryLight}"
+                    FontSize="24"
+                    HeightRequest="56"
+                    WidthRequest="{OnPlatform iOS=80, Android=80, WinUI=120}"
+                    Command="{Binding NavigateToSettingsCommand}" />
+        </HorizontalStackLayout>
+    </Grid>
+    
+</ContentPage>

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    x:Class="TransportTracker.UI.Resources.Styles">
+
+    <!-- Default Font Sizes -->
+    <x:Double x:Key="FontSizeSmall">12</x:Double>
+    <x:Double x:Key="FontSizeNormal">14</x:Double>
+    <x:Double x:Key="FontSizeMedium">16</x:Double>
+    <x:Double x:Key="FontSizeLarge">20</x:Double>
+    <x:Double x:Key="FontSizeExtraLarge">24</x:Double>
+    <x:Double x:Key="FontSizeHeader">28</x:Double>
+    
+    <!-- Spacing -->
+    <x:Double x:Key="SpacingTiny">2</x:Double>
+    <x:Double x:Key="SpacingSmall">4</x:Double>
+    <x:Double x:Key="SpacingNormal">8</x:Double>
+    <x:Double x:Key="SpacingMedium">16</x:Double>
+    <x:Double x:Key="SpacingLarge">24</x:Double>
+    <x:Double x:Key="SpacingExtraLarge">32</x:Double>
+    
+    <!-- Border Radius -->
+    <x:Double x:Key="CornerRadiusSmall">4</x:Double>
+    <x:Double x:Key="CornerRadiusMedium">8</x:Double>
+    <x:Double x:Key="CornerRadiusLarge">16</x:Double>
+    
+    <!-- Button Styles -->
+    <Style TargetType="Button" x:Key="PrimaryButton">
+        <Setter Property="BackgroundColor" Value="{DynamicResource Primary}" />
+        <Setter Property="TextColor" Value="{DynamicResource TextPrimaryDark}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMedium}" />
+        <Setter Property="CornerRadius" Value="{StaticResource CornerRadiusMedium}" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="Margin" Value="0,8" />
+    </Style>
+    
+    <Style TargetType="Button" x:Key="SecondaryButton">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{DynamicResource Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMedium}" />
+        <Setter Property="CornerRadius" Value="{StaticResource CornerRadiusMedium}" />
+        <Setter Property="BorderColor" Value="{DynamicResource Primary}" />
+        <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="Margin" Value="0,8" />
+    </Style>
+    
+    <Style TargetType="Button" x:Key="TextButton">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{DynamicResource Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMedium}" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="Margin" Value="0,8" />
+    </Style>
+    
+    <!-- Label Styles -->
+    <Style TargetType="Label" x:Key="HeaderLabel">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeHeader}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{DynamicResource TextPrimaryLight}" />
+        <Setter Property="Margin" Value="0,16,0,8" />
+    </Style>
+    
+    <Style TargetType="Label" x:Key="TitleLabel">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeExtraLarge}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{DynamicResource TextPrimaryLight}" />
+        <Setter Property="Margin" Value="0,8,0,4" />
+    </Style>
+    
+    <Style TargetType="Label" x:Key="SubtitleLabel">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeLarge}" />
+        <Setter Property="TextColor" Value="{DynamicResource TextSecondaryLight}" />
+        <Setter Property="Margin" Value="0,4,0,8" />
+    </Style>
+    
+    <Style TargetType="Label" x:Key="BodyLabel">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeNormal}" />
+        <Setter Property="TextColor" Value="{DynamicResource TextPrimaryLight}" />
+        <Setter Property="Margin" Value="0,2" />
+    </Style>
+    
+    <Style TargetType="Label" x:Key="CaptionLabel">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
+        <Setter Property="TextColor" Value="{DynamicResource TextSecondaryLight}" />
+        <Setter Property="Margin" Value="0,2" />
+    </Style>
+    
+    <!-- Entry Styles -->
+    <Style TargetType="Entry" x:Key="DefaultEntry">
+        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceLight}" />
+        <Setter Property="TextColor" Value="{DynamicResource TextPrimaryLight}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource TextSecondaryLight}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeNormal}" />
+        <Setter Property="Margin" Value="0,8" />
+    </Style>
+    
+    <!-- SearchBar Styles -->
+    <Style TargetType="SearchBar" x:Key="DefaultSearchBar">
+        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceLight}" />
+        <Setter Property="TextColor" Value="{DynamicResource TextPrimaryLight}" />
+        <Setter Property="PlaceholderColor" Value="{DynamicResource TextSecondaryLight}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeNormal}" />
+        <Setter Property="Margin" Value="0,8" />
+    </Style>
+    
+    <!-- Frame Styles -->
+    <Style TargetType="Frame" x:Key="CardFrame">
+        <Setter Property="BackgroundColor" Value="{DynamicResource BackgroundLight}" />
+        <Setter Property="BorderColor" Value="{DynamicResource DividerLight}" />
+        <Setter Property="CornerRadius" Value="{StaticResource CornerRadiusMedium}" />
+        <Setter Property="Padding" Value="{StaticResource SpacingMedium}" />
+        <Setter Property="Margin" Value="0,8" />
+        <Setter Property="HasShadow" Value="True" />
+    </Style>
+    
+    <!-- CollectionView Styles -->
+    <Style TargetType="CollectionView" x:Key="DefaultCollectionView">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="Margin" Value="0,8" />
+        <Setter Property="SelectionMode" Value="Single" />
+    </Style>
+    
+    <!-- RefreshView Styles -->
+    <Style TargetType="RefreshView" x:Key="DefaultRefreshView">
+        <Setter Property="RefreshColor" Value="{DynamicResource Primary}" />
+    </Style>
+    
+    <!-- ActivityIndicator Styles -->
+    <Style TargetType="ActivityIndicator" x:Key="DefaultActivityIndicator">
+        <Setter Property="Color" Value="{DynamicResource Primary}" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <Setter Property="WidthRequest" Value="40" />
+        <Setter Property="HeightRequest" Value="40" />
+    </Style>
+    
+    <!-- Vehicle Status Badge -->
+    <Style TargetType="Frame" x:Key="StatusBadge">
+        <Setter Property="CornerRadius" Value="{StaticResource CornerRadiusSmall}" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="HasShadow" Value="False" />
+    </Style>
+    
+    <!-- Vehicle List Item -->
+    <Style TargetType="Grid" x:Key="VehicleListItem">
+        <Setter Property="Margin" Value="0,4" />
+        <Setter Property="ColumnDefinitions" Value="Auto,*,Auto" />
+        <Setter Property="RowDefinitions" Value="Auto,Auto,Auto" />
+    </Style>
+</ResourceDictionary>

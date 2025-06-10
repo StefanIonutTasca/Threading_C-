@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    x:Class="TransportTracker.UI.Resources.AppResources">
+
+    <ResourceDictionary.MergedDictionaries>
+        <!-- Order matters - Colors should be first as Styles depend on them -->
+        <ResourceDictionary Source="Colors.xaml" />
+        <ResourceDictionary Source="IconFonts.xaml" />
+        <ResourceDictionary Source="Styles.xaml" />
+        <ResourceDictionary Source="Themes.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+</ResourceDictionary>
