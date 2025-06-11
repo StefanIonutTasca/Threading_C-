@@ -4,12 +4,74 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:TransportTracker.App.Views"
-    Shell.FlyoutBehavior="Disabled"
-    Title="TransportTracker">
+    Title="TransportTracker"
+    FlyoutHeaderBehavior="Fixed"
+    FlyoutVerticalScrollMode="Auto">
 
-    <ShellContent
-        Title="Map"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+    <Shell.Resources>
+        <ResourceDictionary>
+            <Style x:Key="BaseStyle" TargetType="Element">
+                <Setter Property="Shell.BackgroundColor" Value="#2B3A67" />
+                <Setter Property="Shell.ForegroundColor" Value="White" />
+                <Setter Property="Shell.TitleColor" Value="White" />
+                <Setter Property="Shell.TabBarBackgroundColor" Value="#2B3A67" />
+                <Setter Property="Shell.TabBarForegroundColor" Value="White" />
+                <Setter Property="Shell.TabBarTitleColor" Value="White" />
+                <Setter Property="Shell.TabBarUnselectedColor" Value="#95B1E3" />
+            </Style>
+            <Style BasedOn="{StaticResource BaseStyle}" TargetType="ShellItem" />
+
+            <Style TargetType="TabBar">
+                <Setter Property="Shell.TabBarBackgroundColor" Value="#2B3A67" />
+                <Setter Property="Shell.TabBarTitleColor" Value="White" />
+                <Setter Property="Shell.TabBarUnselectedColor" Value="#95B1E3" />
+            </Style>
+        </ResourceDictionary>
+    </Shell.Resources>
+
+    <!-- Flyout Header -->
+    <Shell.FlyoutHeader>
+        <Grid HeightRequest="100" BackgroundColor="#2B3A67">
+            <Label Text="Transport Tracker" TextColor="White" FontSize="24" 
+                   HorizontalTextAlignment="Center" VerticalTextAlignment="Center" />
+        </Grid>
+    </Shell.FlyoutHeader>
+
+    <!-- Flyout Menu Items -->
+    <FlyoutItem Title="Map" Icon="map_icon.png" Route="MainPage">
+        <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
+    </FlyoutItem>
+    
+    <FlyoutItem Title="Routes" Icon="route_icon.png" Route="RoutesPage">
+        <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
+    </FlyoutItem>
+    
+    <FlyoutItem Title="Favorites" Icon="favorite_icon.png" Route="FavoritesPage">
+        <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
+    </FlyoutItem>
+    
+    <FlyoutItem Title="Settings" Icon="settings_icon.png" Route="SettingsPage">
+        <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
+    </FlyoutItem>
+    
+    <FlyoutItem Title="About" Icon="about_icon.png" Route="AboutPage">
+        <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
+    </FlyoutItem>
+
+    <!-- Tab Bar -->
+    <TabBar>
+        <Tab Title="Map" Icon="map_icon.png" Route="MapTab">
+            <ShellContent ContentTemplate="{DataTemplate local:MainPage}" Route="MapPage" />
+        </Tab>
+        <Tab Title="Vehicles" Icon="vehicle_icon.png" Route="VehiclesTab">
+            <ShellContent ContentTemplate="{DataTemplate local:MainPage}" Route="VehiclesPage" />
+        </Tab>
+        <Tab Title="Analytics" Icon="analytics_icon.png" Route="AnalyticsTab">
+            <ShellContent ContentTemplate="{DataTemplate local:MainPage}" Route="AnalyticsPage" />
+        </Tab>
+        <Tab Title="Search" Icon="search_icon.png" Route="SearchTab">
+            <ShellContent ContentTemplate="{DataTemplate local:MainPage}" Route="SearchPage" />
+        </Tab>
+    </TabBar>
 
 </Shell>
