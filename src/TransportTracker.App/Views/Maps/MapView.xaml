@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
+             xmlns:viewmodels="clr-namespace:TransportTracker.App.ViewModels"
+             x:Class="TransportTracker.App.Views.Maps.MapView"
+             Title="Transport Map">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Map Controls Header -->
+        <Grid Grid.Row="0" Padding="10" BackgroundColor="#2B3A67">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            
+            <!-- Current Location Button -->
+            <Button Grid.Column="0"
+                    Text="🔍"
+                    FontSize="18"
+                    HeightRequest="44"
+                    WidthRequest="44"
+                    CornerRadius="22"
+                    BackgroundColor="#4A5FC1"
+                    Clicked="OnMyLocationClicked" />
+            
+            <!-- Map Type Selector -->
+            <Picker Grid.Column="1"
+                    Margin="10,0"
+                    Title="Map Type"
+                    SelectedIndexChanged="OnMapTypeChanged"
+                    BackgroundColor="#2B3A67"
+                    TextColor="White">
+                <Picker.Items>
+                    <x:String>Street</x:String>
+                    <x:String>Satellite</x:String>
+                    <x:String>Hybrid</x:String>
+                </Picker.Items>
+            </Picker>
+            
+            <!-- Refresh Button -->
+            <Button Grid.Column="2"
+                    Text="🔄"
+                    FontSize="18"
+                    HeightRequest="44"
+                    WidthRequest="44"
+                    CornerRadius="22"
+                    BackgroundColor="#4A5FC1"
+                    Clicked="OnRefreshMapClicked" />
+        </Grid>
+        
+        <!-- Map View -->
+        <maps:Map Grid.Row="1" 
+                 x:Name="TransportMap"
+                 IsShowingUser="true"
+                 IsTrafficEnabled="true"
+                 MapType="Street"
+                 IsZoomEnabled="true"
+                 IsScrollEnabled="true" />
+        
+        <!-- Transport Type Filter -->
+        <ScrollView Grid.Row="2" 
+                   Orientation="Horizontal" 
+                   HorizontalScrollBarVisibility="Never" 
+                   BackgroundColor="#2B3A67" 
+                   Padding="10,5">
+            <HorizontalStackLayout Spacing="10">
+                <CheckBox x:Name="BusFilter" 
+                          IsChecked="True" 
+                          Color="#4A5FC1" 
+                          CheckedChanged="OnTransportFilterChanged" />
+                <Label Text="Bus" 
+                       VerticalOptions="Center" 
+                       TextColor="White" />
+                
+                <CheckBox x:Name="TrainFilter" 
+                          IsChecked="True" 
+                          Color="#4A5FC1" 
+                          CheckedChanged="OnTransportFilterChanged" />
+                <Label Text="Train" 
+                       VerticalOptions="Center" 
+                       TextColor="White" />
+                
+                <CheckBox x:Name="TramFilter" 
+                          IsChecked="True" 
+                          Color="#4A5FC1" 
+                          CheckedChanged="OnTransportFilterChanged" />
+                <Label Text="Tram" 
+                       VerticalOptions="Center" 
+                       TextColor="White" />
+                
+                <CheckBox x:Name="SubwayFilter" 
+                          IsChecked="True" 
+                          Color="#4A5FC1" 
+                          CheckedChanged="OnTransportFilterChanged" />
+                <Label Text="Subway" 
+                       VerticalOptions="Center" 
+                       TextColor="White" />
+                
+                <CheckBox x:Name="FerryFilter" 
+                          IsChecked="True" 
+                          Color="#4A5FC1" 
+                          CheckedChanged="OnTransportFilterChanged" />
+                <Label Text="Ferry" 
+                       VerticalOptions="Center" 
+                       TextColor="White" />
+            </HorizontalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

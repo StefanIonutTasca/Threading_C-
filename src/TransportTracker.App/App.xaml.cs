@@ -6,31 +6,14 @@ namespace TransportTracker.App
 {
     public partial class App : Application
     {
-        public static IServiceProvider ServiceProvider { get; private set; }
-
+        // Services are now configured in MauiProgram.cs
         public App()
         {
             InitializeComponent();
 
-            // Setup dependency injection
-            SetupServices();
-
+            // Create the main shell with navigation
             MainPage = new AppShell();
         }
-
-        private void SetupServices()
-        {
-            var services = new ServiceCollection();
-            
-            // Register services for dependency injection
-            services.AddSingleton<INavigationService, NavigationService>();
-            
-            // Create service provider
-            ServiceProvider = services.BuildServiceProvider();
-        }
-
-        public static TService GetService<TService>()
-            => ServiceProvider.GetService<TService>();
 
         protected override void OnStart()
         {

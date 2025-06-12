@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:TransportTracker.App.Views"
+    xmlns:maps="clr-namespace:TransportTracker.App.Views.Maps"
     Title="TransportTracker"
     FlyoutHeaderBehavior="Fixed"
     FlyoutVerticalScrollMode="Auto">
@@ -38,8 +39,8 @@
     </Shell.FlyoutHeader>
 
     <!-- Flyout Menu Items -->
-    <FlyoutItem Title="Map" Icon="map_icon.png" Route="MainPage">
-        <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
+    <FlyoutItem Title="Map" Icon="map_icon.png" Route="MapRoute">
+        <ShellContent ContentTemplate="{DataTemplate maps:MapView}" />
     </FlyoutItem>
     
     <FlyoutItem Title="Routes" Icon="route_icon.png" Route="RoutesPage">
@@ -61,7 +62,7 @@
     <!-- Tab Bar -->
     <TabBar>
         <Tab Title="Map" Icon="map_icon.png" Route="MapTab">
-            <ShellContent ContentTemplate="{DataTemplate local:MainPage}" Route="MapPage" />
+            <ShellContent ContentTemplate="{DataTemplate maps:MapView}" Route="MapPage" />
         </Tab>
         <Tab Title="Vehicles" Icon="vehicle_icon.png" Route="VehiclesTab">
             <ShellContent ContentTemplate="{DataTemplate local:MainPage}" Route="VehiclesPage" />
