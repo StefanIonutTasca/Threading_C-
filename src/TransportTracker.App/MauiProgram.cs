@@ -6,6 +6,7 @@ using Microsoft.Maui.Maps;
 using TransportTracker.App.Core.MVVM;
 using TransportTracker.App.Services;
 using TransportTracker.App.ViewModels;
+using TransportTracker.App.Views.Charts;
 using TransportTracker.App.Views.Maps;
 
 namespace TransportTracker.App
@@ -41,10 +42,12 @@ namespace TransportTracker.App
             builder.Services.AddTransient<MainViewModel>();
             builder.Services.AddTransient<MapViewModel>();
             builder.Services.AddTransient<VehiclesViewModel>();
+            builder.Services.AddTransient<ChartsViewModel>();
             builder.Services.AddSingleton<SettingsViewModel>();
             
             // Register views
             builder.Services.AddTransient<MapView>();
+            builder.Services.AddTransient<ChartsView>();
 
 #if DEBUG
             builder.Logging.AddDebug();

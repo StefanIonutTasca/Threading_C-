@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:charts="clr-namespace:TransportTracker.App.Views.Charts"
+             xmlns:core="clr-namespace:TransportTracker.App.Core.Charts"
+             x:Class="TransportTracker.App.Views.Charts.ChartsView"
+             Title="{Binding Title}">
+    
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <Style x:Key="ChartTitleStyle" TargetType="Label">
+                <Setter Property="FontSize" Value="18" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="TextColor" Value="#333333" />
+                <Setter Property="Margin" Value="10, 5" />
+                <Setter Property="HorizontalOptions" Value="Start" />
+            </Style>
+
+            <Style x:Key="ChartDescriptionStyle" TargetType="Label">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="TextColor" Value="#666666" />
+                <Setter Property="Margin" Value="10, 0, 10, 5" />
+                <Setter Property="HorizontalOptions" Value="Start" />
+            </Style>
+            
+            <Style x:Key="ChartCardStyle" TargetType="Frame">
+                <Setter Property="HasShadow" Value="True" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="BackgroundColor" Value="White" />
+                <Setter Property="Margin" Value="10" />
+                <Setter Property="Padding" Value="10" />
+            </Style>
+            
+            <Style x:Key="ControlButtonStyle" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="#0078D4" />
+                <Setter Property="TextColor" Value="White" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Margin" Value="5" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Padding" Value="8" />
+            </Style>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+    
+    <Grid RowDefinitions="Auto, *">
+        <!-- Header controls -->
+        <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Padding="10">
+            <Label Grid.Column="0" 
+                   Text="{Binding Title}" 
+                   FontSize="22" 
+                   FontAttributes="Bold"
+                   VerticalOptions="Center" />
+            
+            <Button Grid.Column="1"
+                    Text="Refresh"
+                    Command="{Binding RefreshChartsCommand}"
+                    IsEnabled="{Binding IsNotBusy}"
+                    Style="{StaticResource ControlButtonStyle}" />
+        </Grid>
+        
+        <!-- Charts ScrollView -->
+        <ScrollView Grid.Row="1">
+            <StackLayout>
+                <!-- Time range selector -->
+                <Frame Style="{StaticResource ChartCardStyle}">
+                    <StackLayout>
+                        <Label Text="Time Range" Style="{StaticResource ChartTitleStyle}" />
+                        <HorizontalStackLayout HorizontalOptions="Center" Spacing="5">
+                            <Button Text="1h" Command="{Binding ChangeTimeRangeCommand}" CommandParameter="1" Style="{StaticResource ControlButtonStyle}" />
+                            <Button Text="2h" Command="{Binding ChangeTimeRangeCommand}" CommandParameter="2" Style="{StaticResource ControlButtonStyle}" />
+                            <Button Text="4h" Command="{Binding ChangeTimeRangeCommand}" CommandParameter="4" Style="{StaticResource ControlButtonStyle}" />
+                            <Button Text="8h" Command="{Binding ChangeTimeRangeCommand}" CommandParameter="8" Style="{StaticResource ControlButtonStyle}" />
+                            <Button Text="24h" Command="{Binding ChangeTimeRangeCommand}" CommandParameter="24" Style="{StaticResource ControlButtonStyle}" />
+                        </HorizontalStackLayout>
+                    </StackLayout>
+                </Frame>
+                
+                <!-- Arrival predictions chart -->
+                <Frame Style="{StaticResource ChartCardStyle}">
+                    <StackLayout>
+                        <Label Text="Arrival Predictions" Style="{StaticResource ChartTitleStyle}" />
+                        <Label Text="Estimated arrival times for the next buses on the selected route" 
+                               Style="{StaticResource ChartDescriptionStyle}" />
+                        
+                        <charts:ArrivalBarChartView 
+                            Entries="{Binding ArrivalPredictions}"
+                            HeightRequest="250"
+                            BackgroundColor="#F5F5F5"
+                            LabelTextColor="#333333"
+                            ShowCurrentTime="True"
+                            CurrentTimeColor="#FF0000" />
+                    </StackLayout>
+                </Frame>
+                
+                <!-- Route frequency chart -->
+                <Frame Style="{StaticResource ChartCardStyle}">
+                    <StackLayout>
+                        <Label Text="Route Frequency" Style="{StaticResource ChartTitleStyle}" />
+                        <Label Text="Number of vehicles per hour throughout the day" 
+                               Style="{StaticResource ChartDescriptionStyle}" />
+                        
+                        <charts:FrequencyLineChartView 
+                            Entries="{Binding RouteFrequency}"
+                            HeightRequest="250"
+                            LineColor="#0078D4"
+                            BackgroundColor="#F5F5F5"
+                            LabelTextColor="#333333"
+                            LineThickness="3"
+                            FillArea="True"
+                            ShowPoints="True"
+                            PointSize="6" />
+                    </StackLayout>
+                </Frame>
+                
+                <!-- Capacity and occupancy charts -->
+                <Frame Style="{StaticResource ChartCardStyle}">
+                    <StackLayout>
+                        <Label Text="Capacity &amp; Occupancy" Style="{StaticResource ChartTitleStyle}" />
+                        <Label Text="Average vehicle occupancy percentage by hour" 
+                               Style="{StaticResource ChartDescriptionStyle}" />
+                        
+                        <charts:FrequencyLineChartView 
+                            Entries="{Binding CapacityOccupancy}"
+                            HeightRequest="250"
+                            LineColor="#8946A6"
+                            BackgroundColor="#F5F5F5"
+                            LabelTextColor="#333333"
+                            LineThickness="3"
+                            FillArea="True"
+                            ShowPoints="True"
+                            PointSize="6" />
+                    </StackLayout>
+                </Frame>
+                
+                <!-- Delay statistics chart -->
+                <Frame Style="{StaticResource ChartCardStyle}">
+                    <StackLayout>
+                        <Label Text="Delay Statistics" Style="{StaticResource ChartTitleStyle}" />
+                        <Label Text="Average delay in minutes by day of the week" 
+                               Style="{StaticResource ChartDescriptionStyle}" />
+                        
+                        <charts:ArrivalBarChartView 
+                            Entries="{Binding DelayStatistics}"
+                            HeightRequest="250"
+                            BackgroundColor="#F5F5F5"
+                            LabelTextColor="#333333"
+                            ShowCurrentTime="False"
+                            BarSpacing="20" />
+                    </StackLayout>
+                </Frame>
+                
+                <!-- Extra spacing at the bottom -->
+                <BoxView HeightRequest="20" />
+            </StackLayout>
+        </ScrollView>
+        
+        <!-- Loading overlay -->
+        <Grid Grid.RowSpan="2" IsVisible="{Binding IsBusy}" BackgroundColor="#80000000">
+            <StackLayout VerticalOptions="Center" HorizontalOptions="Center">
+                <ActivityIndicator IsRunning="True" Color="White" HeightRequest="50" WidthRequest="50" />
+                <Label Text="Loading charts..." TextColor="White" FontSize="16" Margin="0,10,0,0" />
+            </StackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>

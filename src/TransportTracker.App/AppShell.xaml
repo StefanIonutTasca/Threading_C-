@@ -3,8 +3,9 @@
     x:Class="TransportTracker.App.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:local="clr-namespace:TransportTracker.App.Views"
+    xmlns:local="clr-namespace:TransportTracker.App"
     xmlns:maps="clr-namespace:TransportTracker.App.Views.Maps"
+    xmlns:charts="clr-namespace:TransportTracker.App.Views.Charts"
     Title="TransportTracker"
     FlyoutHeaderBehavior="Fixed"
     FlyoutVerticalScrollMode="Auto">
@@ -39,8 +40,18 @@
     </Shell.FlyoutHeader>
 
     <!-- Flyout Menu Items -->
-    <FlyoutItem Title="Map" Icon="map_icon.png" Route="MapRoute">
-        <ShellContent ContentTemplate="{DataTemplate maps:MapView}" />
+    <FlyoutItem Title="Map" Icon="map_icon.png">
+        <ShellContent
+            Title="Map"
+            ContentTemplate="{DataTemplate maps:MapView}"
+            Route="MapPage" />
+    </FlyoutItem>
+    
+    <FlyoutItem Title="Charts" Icon="chart_icon.png">
+        <ShellContent
+            Title="Charts"
+            ContentTemplate="{DataTemplate charts:ChartsView}"
+            Route="ChartsPage" />
     </FlyoutItem>
     
     <FlyoutItem Title="Routes" Icon="route_icon.png" Route="RoutesPage">
@@ -61,8 +72,18 @@
 
     <!-- Tab Bar -->
     <TabBar>
-        <Tab Title="Map" Icon="map_icon.png" Route="MapTab">
-            <ShellContent ContentTemplate="{DataTemplate maps:MapView}" Route="MapPage" />
+        <Tab Title="Map" Icon="map_icon.png">
+            <ShellContent
+                Title="Map"
+                ContentTemplate="{DataTemplate maps:MapView}"
+                Route="MapTab" />
+        </Tab>
+        
+        <Tab Title="Charts" Icon="chart_icon.png">
+            <ShellContent
+                Title="Charts"
+                ContentTemplate="{DataTemplate charts:ChartsView}"
+                Route="ChartsTab" />
         </Tab>
         <Tab Title="Vehicles" Icon="vehicle_icon.png" Route="VehiclesTab">
             <ShellContent ContentTemplate="{DataTemplate local:MainPage}" Route="VehiclesPage" />
