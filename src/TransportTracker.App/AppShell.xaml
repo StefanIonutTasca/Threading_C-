@@ -6,6 +6,7 @@
     xmlns:local="clr-namespace:TransportTracker.App"
     xmlns:maps="clr-namespace:TransportTracker.App.Views.Maps"
     xmlns:charts="clr-namespace:TransportTracker.App.Views.Charts"
+    xmlns:vehicles="clr-namespace:TransportTracker.App.Views.Vehicles"
     Title="TransportTracker"
     FlyoutHeaderBehavior="Fixed"
     FlyoutVerticalScrollMode="Auto">
@@ -54,6 +55,13 @@
             Route="ChartsPage" />
     </FlyoutItem>
     
+    <FlyoutItem Title="Vehicles" Icon="vehicle_icon.png">
+        <ShellContent
+            Title="Vehicles"
+            ContentTemplate="{DataTemplate vehicles:VehiclesView}"
+            Route="VehiclesPage" />
+    </FlyoutItem>
+    
     <FlyoutItem Title="Routes" Icon="route_icon.png" Route="RoutesPage">
         <ShellContent ContentTemplate="{DataTemplate local:MainPage}" />
     </FlyoutItem>
@@ -85,8 +93,11 @@
                 ContentTemplate="{DataTemplate charts:ChartsView}"
                 Route="ChartsTab" />
         </Tab>
-        <Tab Title="Vehicles" Icon="vehicle_icon.png" Route="VehiclesTab">
-            <ShellContent ContentTemplate="{DataTemplate local:MainPage}" Route="VehiclesPage" />
+        <Tab Title="Vehicles" Icon="vehicle_icon.png">
+            <ShellContent
+                Title="Vehicles"
+                ContentTemplate="{DataTemplate vehicles:VehiclesView}"
+                Route="VehiclesTab" />
         </Tab>
         <Tab Title="Analytics" Icon="analytics_icon.png" Route="AnalyticsTab">
             <ShellContent ContentTemplate="{DataTemplate local:MainPage}" Route="AnalyticsPage" />

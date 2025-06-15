@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:maps="clr-namespace:TransportTracker.App.Views.Maps"
+             x:Class="TransportTracker.App.Views.Vehicles.VehiclesView"
+             xmlns:viewmodels="clr-namespace:TransportTracker.App.ViewModels"
+             x:DataType="viewmodels:VehiclesViewModel"
+             Title="{Binding Title}">
+    
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <!-- Filter button style -->
+            <Style x:Key="FilterButtonStyle" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="#0078D4" />
+                <Setter Property="TextColor" Value="White" />
+                <Setter Property="CornerRadius" Value="20" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="Padding" Value="15,8" />
+                <Setter Property="Margin" Value="5,0" />
+            </Style>
+            
+            <!-- Selected filter button style -->
+            <Style x:Key="FilterButtonSelectedStyle" TargetType="Button" BasedOn="{StaticResource FilterButtonStyle}">
+                <Setter Property="BackgroundColor" Value="#005A9E" />
+                <Setter Property="FontAttributes" Value="Bold" />
+            </Style>
+
+            <!-- List group header style -->
+            <Style x:Key="GroupHeaderStyle" TargetType="Label">
+                <Setter Property="BackgroundColor" Value="#EFEFEF" />
+                <Setter Property="Padding" Value="20,5" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="TextColor" Value="#444444" />
+                <Setter Property="FontSize" Value="16" />
+            </Style>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto, Auto, *, Auto">
+        <!-- Search Bar -->
+        <Grid Grid.Row="0" Padding="10" ColumnDefinitions="*, Auto">
+            <SearchBar Grid.Column="0" 
+                       Placeholder="Search vehicles..."
+                       Text="{Binding SearchText}"
+                       SearchCommand="{Binding SearchCommand}"
+                       SearchCommandParameter="{Binding SearchText}"
+                       HorizontalOptions="Fill"
+                       BackgroundColor="#F5F5F5" />
+            
+            <Button Grid.Column="1" 
+                    Text="Filters"
+                    Command="{Binding ToggleFiltersCommand}" 
+                    Style="{StaticResource FilterButtonStyle}"
+                    Margin="5,0,0,0" />
+        </Grid>
+        
+        <!-- Filter Row (collapsible) -->
+        <ScrollView Grid.Row="1" Orientation="Horizontal" IsVisible="{Binding AreFiltersVisible}">
+            <HorizontalStackLayout Padding="10,0,10,10" Spacing="10">
+                <Button Text="Bus" 
+                        Command="{Binding ToggleFilterCommand}" 
+                        CommandParameter="Bus"
+                        Style="{StaticResource FilterButtonStyle}" />
+                
+                <Button Text="Train" 
+                        Command="{Binding ToggleFilterCommand}" 
+                        CommandParameter="Train"
+                        Style="{StaticResource FilterButtonStyle}" />
+                
+                <Button Text="Tram" 
+                        Command="{Binding ToggleFilterCommand}" 
+                        CommandParameter="Tram"
+                        Style="{StaticResource FilterButtonStyle}" />
+                
+                <Button Text="Subway" 
+                        Command="{Binding ToggleFilterCommand}" 
+                        CommandParameter="Subway"
+                        Style="{StaticResource FilterButtonStyle}" />
+                
+                <Button Text="Ferry" 
+                        Command="{Binding ToggleFilterCommand}" 
+                        CommandParameter="Ferry"
+                        Style="{StaticResource FilterButtonStyle}" />
+                
+                <Button Text="On Time" 
+                        Command="{Binding ToggleStatusFilterCommand}" 
+                        CommandParameter="On Time"
+                        Style="{StaticResource FilterButtonStyle}" />
+                
+                <Button Text="Delayed" 
+                        Command="{Binding ToggleStatusFilterCommand}" 
+                        CommandParameter="Delayed"
+                        Style="{StaticResource FilterButtonStyle}" />
+            </HorizontalStackLayout>
+        </ScrollView>
+        
+        <!-- Virtualized Collection View -->
+        <RefreshView Grid.Row="2" 
+                     IsRefreshing="{Binding IsRefreshing}" 
+                     Command="{Binding RefreshCommand}">
+            <CollectionView ItemsSource="{Binding FilteredVehicles}"
+                            SelectionMode="Single"
+                            SelectedItem="{Binding SelectedVehicle}"
+                            SelectionChangedCommand="{Binding VehicleSelectedCommand}"
+                            RemainingItemsThreshold="5"
+                            RemainingItemsThresholdReachedCommand="{Binding LoadMoreItemsCommand}"
+                            EmptyView="No vehicles match your filters.">
+                
+                <!-- Group configuration -->
+                <CollectionView.GroupHeaderTemplate>
+                    <DataTemplate>
+                        <Label Text="{Binding Key}" 
+                               Style="{StaticResource GroupHeaderStyle}" />
+                    </DataTemplate>
+                </CollectionView.GroupHeaderTemplate>
+                
+                <!-- Data Template for Vehicle Items -->
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="maps:TransportVehicle">
+                        <Grid Padding="20,15" 
+                              RowDefinitions="Auto, Auto"
+                              ColumnDefinitions="Auto, *, Auto">
+                            
+                            <!-- Vehicle type indicator -->
+                            <Border Grid.Row="0" Grid.RowSpan="2"
+                                   Grid.Column="0"
+                                   StrokeThickness="0"
+                                   Padding="10"
+                                   BackgroundColor="{Binding Type, Converter={StaticResource TypeToColorConverter}}"
+                                   WidthRequest="45"
+                                   HeightRequest="45"
+                                   Stroke="Transparent"
+                                   StrokeShape="RoundRectangle 10">
+                                <Label Text="{Binding Type, StringFormat='{0:F0}'}"
+                                       TextColor="White"
+                                       FontAttributes="Bold"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center" />
+                            </Border>
+                            
+                            <!-- Vehicle details -->
+                            <VerticalStackLayout Grid.Row="0" Grid.Column="1" Spacing="2" Margin="15,0,0,0">
+                                <Label Text="{Binding Number}" FontAttributes="Bold" FontSize="16" />
+                                <Label Text="{Binding Route}" FontSize="14" TextColor="#555555" />
+                            </VerticalStackLayout>
+                            
+                            <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="2" Margin="15,5,0,0">
+                                <Label Text="{Binding NextArrivalInfo}" FontSize="13" TextColor="#666666" />
+                                <Label Text="{Binding OccupancyInfo}" FontSize="12" TextColor="#777777" />
+                            </VerticalStackLayout>
+                            
+                            <!-- Status indicator -->
+                            <Frame Grid.Row="0" Grid.Column="2" 
+                                   Padding="10,5"
+                                   CornerRadius="15"
+                                   HasShadow="False"
+                                   BorderColor="Transparent"
+                                   BackgroundColor="{Binding Status, Converter={StaticResource StatusToColorConverter}}">
+                                <Label Text="{Binding Status}" 
+                                       TextColor="White"
+                                       FontSize="12" />
+                            </Frame>
+                            
+                            <Label Grid.Row="1" Grid.Column="2"
+                                   Text="{Binding LastUpdated, StringFormat='{0:HH:mm}'}"
+                                   FontSize="12"
+                                   TextColor="#999999"
+                                   HorizontalOptions="End"
+                                   VerticalOptions="End" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                
+                <!-- Group Configuration -->
+                <CollectionView.IsGrouped>True</CollectionView.IsGrouped>
+                
+                <!-- Footer Template for Loading Indicator -->
+                <CollectionView.Footer>
+                    <Grid Padding="0,20" IsVisible="{Binding IsLoadingMore}">
+                        <ActivityIndicator IsRunning="{Binding IsLoadingMore}" 
+                                           Color="#0078D4" 
+                                           HorizontalOptions="Center" />
+                        <Label Text="Loading more vehicles..." 
+                               TextColor="#666666"
+                               FontSize="14"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               Margin="0,50,0,0" />
+                    </Grid>
+                </CollectionView.Footer>
+            </CollectionView>
+        </RefreshView>
+        
+        <!-- Sorting options -->
+        <HorizontalStackLayout Grid.Row="3" 
+                              Padding="10"
+                              BackgroundColor="#F5F5F5"
+                              HorizontalOptions="End">
+            <Label Text="Sort by:" 
+                   VerticalOptions="Center" 
+                   FontSize="14"/>
+            <Picker SelectedItem="{Binding SortOption}" 
+                    ItemsSource="{Binding SortOptions}"
+                    HorizontalOptions="End"
+                    WidthRequest="150"
+                    SelectedIndexChanged="OnSortOptionChanged" />
+        </HorizontalStackLayout>
+    </Grid>
+</ContentPage>

@@ -1,11 +1,13 @@
 using System;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace TransportTracker.App.Views.Maps
 {
     /// <summary>
     /// Represents a public transport vehicle with real-time information.
     /// </summary>
-    public class TransportVehicle
+    public class TransportVehicle : INotifyPropertyChanged
     {
         /// <summary>
         /// Gets or sets the unique identifier for the vehicle.
@@ -31,6 +33,11 @@ namespace TransportTracker.App.Views.Maps
         /// Gets or sets the next stop the vehicle will arrive at.
         /// </summary>
         public string NextStop { get; set; }
+
+        /// <summary>
+        /// Gets or sets additional information about the next arrival (time to arrival, etc.)
+        /// </summary>
+        public string NextArrivalInfo { get; set; }
 
         /// <summary>
         /// Gets or sets the status of the vehicle (e.g., On Time, Delayed, Out of Service).
@@ -73,14 +80,37 @@ namespace TransportTracker.App.Views.Maps
         public int Occupancy { get; set; }
 
         /// <summary>
-        /// Gets the occupancy percentage based on the capacity and current occupancy.
+        /// Gets a formatted string with occupancy information.
         /// </summary>
-        public double OccupancyPercentage => Capacity > 0 ? (double)Occupancy / Capacity * 100 : 0;
+        public string OccupancyInfo => $"{Occupancy}/{Capacity} passengers ({OccupancyPercentage}% full)";
+
+        /// <summary>
+        /// Gets the occupancy percentage.
+        /// </summary>
+        public int OccupancyPercentage => Capacity > 0 ? (int)(((double)Occupancy / Capacity) * 100) : 0;
 
         /// <summary>
         /// Gets a value indicating whether the vehicle is delayed.
         /// </summary>
-        public bool IsDelayed => Status?.Contains("Delayed") ?? false;
+        public bool IsDelayed => Status?.Contains("Delay", StringComparison.OrdinalIgnoreCase) == true;
+
+        #region INotifyPropertyChanged
+
+        /// <summary>
+        /// PropertyChanged event
+        /// </summary>
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        /// <summary>
+        /// Raises the PropertyChanged event.
+        /// </summary>
+        /// <param name="propertyName">Name of the property that changed.</param>
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        #endregion
 
         /// <summary>
         /// Gets a value indicating whether the vehicle is out of service.
