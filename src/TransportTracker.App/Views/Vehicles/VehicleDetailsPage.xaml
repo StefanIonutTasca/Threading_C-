@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<base:BaseContentPage 
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:base="clr-namespace:TransportTracker.App.Core.UI"
+    xmlns:converters="clr-namespace:TransportTracker.App.Core.Converters"
+    xmlns:local="clr-namespace:TransportTracker.App.ViewModels"
+    xmlns:maps="clr-namespace:TransportTracker.App.Views.Maps"
+    x:Class="TransportTracker.App.Views.Vehicles.VehicleDetailsPage"
+    x:DataType="local:VehicleDetailsViewModel"
+    Title="{Binding Title}">
+
+    <ContentPage.Resources>
+        <converters:TypeToColorConverter x:Key="TypeToColorConverter" />
+        <converters:StatusToColorConverter x:Key="StatusToColorConverter" />
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <converters:InverseBoolConverter x:Key="InverseBoolConverter" />
+    </ContentPage.Resources>
+
+    <RefreshView
+        IsRefreshing="{Binding IsRefreshing}"
+        Command="{Binding RefreshCommand}"
+        RefreshColor="{StaticResource Primary}">
+        <ScrollView>
+            <Grid 
+                Padding="16"
+                RowSpacing="16"
+                RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                ColumnDefinitions="*,*">
+
+                <!-- Header with Status and Type -->
+                <Frame Grid.Row="0" Grid.ColumnSpan="2" Padding="16" BorderColor="{Binding Vehicle.Type, Converter={StaticResource TypeToColorConverter}}">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Image 
+                            Grid.Column="0"
+                            Source="{Binding VehicleIcon}"
+                            HeightRequest="40"
+                            WidthRequest="40"
+                            Margin="0,0,12,0" />
+                            
+                        <VerticalStackLayout Grid.Column="1">
+                            <Label 
+                                Text="{Binding Vehicle.Number, StringFormat='{0}'}"
+                                FontSize="22"
+                                FontAttributes="Bold"/>
+                            <Label 
+                                Text="{Binding Vehicle.Type}"
+                                FontSize="16"
+                                TextColor="{StaticResource Secondary}"/>
+                        </VerticalStackLayout>
+                        
+                        <Border Grid.Column="2" 
+                                BackgroundColor="{Binding Vehicle.Status, Converter={StaticResource StatusToColorConverter}}"
+                                StrokeThickness="0"
+                                Padding="10,5"
+                                StrokeShape="RoundRectangle 20">
+                            <Label 
+                                Text="{Binding Vehicle.Status}"
+                                TextColor="White"
+                                FontAttributes="Bold" />
+                        </Border>
+                    </Grid>
+                </Frame>
+
+                <!-- Quick Stats -->
+                <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                    <!-- Speed -->
+                    <Frame Grid.Column="0" Padding="12" BackgroundColor="#f0f0f0">
+                        <VerticalStackLayout HorizontalOptions="Center">
+                            <Label Text="Speed" FontSize="12" TextColor="{StaticResource Secondary}" HorizontalOptions="Center" />
+                            <Label Text="{Binding Vehicle.Speed, StringFormat='{0} km/h'}" FontSize="18" FontAttributes="Bold" HorizontalOptions="Center" />
+                        </VerticalStackLayout>
+                    </Frame>
+                    
+                    <!-- Occupancy -->
+                    <Frame Grid.Column="1" Padding="12" BackgroundColor="#f0f0f0">
+                        <VerticalStackLayout HorizontalOptions="Center">
+                            <Label Text="Occupancy" FontSize="12" TextColor="{StaticResource Secondary}" HorizontalOptions="Center" />
+                            <Label Text="{Binding Vehicle.OccupancyPercentage, StringFormat='{0}%'}" FontSize="18" FontAttributes="Bold" HorizontalOptions="Center" />
+                            <ProgressBar Progress="{Binding Vehicle.OccupancyPercentage, Converter={StaticResource PercentToDecimalConverter}}" 
+                                         ProgressColor="{Binding Vehicle.OccupancyPercentage, Converter={StaticResource OccupancyToColorConverter}}"
+                                         WidthRequest="80" />
+                        </VerticalStackLayout>
+                    </Frame>
+                    
+                    <!-- ETA -->
+                    <Frame Grid.Column="2" Padding="12" BackgroundColor="#f0f0f0">
+                        <VerticalStackLayout HorizontalOptions="Center">
+                            <Label Text="Next Stop" FontSize="12" TextColor="{StaticResource Secondary}" HorizontalOptions="Center" />
+                            <Label Text="{Binding NextStopEta}" FontSize="18" FontAttributes="Bold" HorizontalOptions="Center" />
+                        </VerticalStackLayout>
+                    </Frame>
+                </Grid>
+
+                <!-- Route Information -->
+                <Frame Grid.Row="2" Grid.ColumnSpan="2" Padding="16">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Route Information" FontSize="18" FontAttributes="Bold" />
+                        
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                            <Label Grid.Row="0" Grid.Column="0" Text="Route:" FontAttributes="Bold" />
+                            <Label Grid.Row="0" Grid.Column="1" Text="{Binding Vehicle.Route}" />
+                            
+                            <Label Grid.Row="1" Grid.Column="0" Text="From:" FontAttributes="Bold" />
+                            <Label Grid.Row="1" Grid.Column="1" Text="{Binding Vehicle.StartLocation}" />
+                            
+                            <Label Grid.Row="2" Grid.Column="0" Text="To:" FontAttributes="Bold" />
+                            <Label Grid.Row="2" Grid.Column="1" Text="{Binding Vehicle.EndLocation}" />
+                        </Grid>
+                        
+                        <BoxView HeightRequest="1" Color="{StaticResource Gray300}" Margin="0,8"/>
+                        
+                        <!-- Next Stops -->
+                        <Label Text="Next Stops" FontSize="16" FontAttributes="Bold" />
+                        <CollectionView ItemsSource="{Binding NextStops}" EmptyView="No upcoming stops information available" HeightRequest="150">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="local:StopInfo">
+                                    <Grid Padding="0,8" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                                        <Ellipse 
+                                            Grid.Column="0"
+                                            Fill="{Binding IsNext, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#4CAF50,#AAAAAA'}"
+                                            WidthRequest="12" 
+                                            HeightRequest="12"
+                                            VerticalOptions="Center" 
+                                            HorizontalOptions="Center" />
+                                            
+                                        <VerticalStackLayout Grid.Column="1">
+                                            <Label Text="{Binding Name}" FontAttributes="{Binding IsNext, Converter={StaticResource BoolToFontAttributesConverter}}" />
+                                            <Label Text="{Binding Location}" FontSize="12" TextColor="{StaticResource Gray500}" />
+                                        </VerticalStackLayout>
+                                        
+                                        <Label 
+                                            Grid.Column="2" 
+                                            Text="{Binding EstimatedTime}" 
+                                            VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Live Location Map -->
+                <Frame Grid.Row="3" Grid.ColumnSpan="2" Padding="16" HasShadow="True">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Live Location" FontSize="18" FontAttributes="Bold"/>
+                        <maps:MiniMapView 
+                            HeightRequest="200"
+                            Vehicle="{Binding Vehicle}"
+                            IsLoading="{Binding IsLoadingMap}"
+                            IsInteractive="True" />
+                            
+                        <Button 
+                            Text="View Full Map" 
+                            Command="{Binding ShowOnMapCommand}"
+                            Style="{StaticResource OutlineButtonStyle}"
+                            HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </Frame>
+
+                <!-- Schedule Comparison -->
+                <Frame Grid.Row="4" Grid.ColumnSpan="2" Padding="16">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Schedule Comparison" FontSize="18" FontAttributes="Bold"/>
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+                            <Label Grid.Row="0" Grid.Column="0" Text="Scheduled" FontAttributes="Bold" />
+                            <Label Grid.Row="0" Grid.Column="1" Text="Actual" FontAttributes="Bold" />
+                            
+                            <Label Grid.Row="1" Grid.Column="0" Text="{Binding Vehicle.ScheduledDeparture, StringFormat='{0:hh\\:mm}'}" />
+                            <Label Grid.Row="1" Grid.Column="1" Text="{Binding Vehicle.ActualDeparture, StringFormat='{0:hh\\:mm}'}" />
+                            
+                            <Label Grid.Row="2" Grid.Column="0" Text="{Binding Vehicle.ScheduledArrival, StringFormat='{0:hh\\:mm}'}" />
+                            <Label Grid.Row="2" Grid.Column="1" Text="{Binding Vehicle.ExpectedArrival, StringFormat='{0:hh\\:mm}'}" />
+                        </Grid>
+                        
+                        <BoxView HeightRequest="1" Color="{StaticResource Gray300}" Margin="0,8"/>
+                        
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Label Grid.Column="0" Text="Delay:" FontAttributes="Bold" VerticalOptions="Center" />
+                            <Label 
+                                Grid.Column="1" 
+                                Text="{Binding DelayText}" 
+                                TextColor="{Binding IsDelayed, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#f44336,#4CAF50'}"
+                                FontAttributes="Bold"
+                                VerticalOptions="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Frame>
+                
+                <!-- Loading Indicator -->
+                <ActivityIndicator 
+                    Grid.Row="0" 
+                    Grid.RowSpan="5"
+                    Grid.ColumnSpan="2"
+                    IsRunning="{Binding IsLoading}"
+                    IsVisible="{Binding IsLoading}"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center" />
+            </Grid>
+        </ScrollView>
+    </RefreshView>
+</base:BaseContentPage>

@@ -8,6 +8,7 @@ using TransportTracker.App.Services;
 using TransportTracker.App.ViewModels;
 using TransportTracker.App.Views.Charts;
 using TransportTracker.App.Views.Maps;
+using TransportTracker.App.Views.Vehicles;
 
 namespace TransportTracker.App
 {
@@ -34,20 +35,25 @@ namespace TransportTracker.App
 
             // Register services
             builder.Services.AddSingleton<INavigationService, NavigationService>();
+            builder.Services.AddSingleton<IMapService, MapService>();
+            builder.Services.AddSingleton<IVehiclesService, VehiclesService>();
             
             // Register ViewModelLocator
             builder.Services.AddSingleton<ViewModelLocator>();
             
             // Register view models
-            builder.Services.AddTransient<MainViewModel>();
-            builder.Services.AddTransient<MapViewModel>();
-            builder.Services.AddTransient<VehiclesViewModel>();
-            builder.Services.AddTransient<ChartsViewModel>();
+            builder.Services.AddSingleton<MainViewModel>();
+            builder.Services.AddSingleton<MapViewModel>();
+            builder.Services.AddSingleton<ChartsViewModel>();
+            builder.Services.AddSingleton<VehiclesViewModel>();
+            builder.Services.AddTransient<VehicleDetailsViewModel>();
             builder.Services.AddSingleton<SettingsViewModel>();
             
             // Register views
-            builder.Services.AddTransient<MapView>();
-            builder.Services.AddTransient<ChartsView>();
+            builder.Services.AddSingleton<MapView>();
+            builder.Services.AddSingleton<ChartsView>();
+            builder.Services.AddSingleton<VehiclesView>();
+            builder.Services.AddTransient<VehicleDetailsPage>();
 
 #if DEBUG
             builder.Logging.AddDebug();
