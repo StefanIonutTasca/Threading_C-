@@ -15,7 +15,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using TransportTracker.App.Core.Diagnostics;
 using TransportTracker.App.Core.Processing;
+using TransportTracker.App.Core.UI;
 using TransportTracker.App.Models;
 using TransportTracker.App.Views.Maps.Clustering;
 using TransportTracker.App.Views.Maps.Overlays;
@@ -50,17 +52,7 @@ namespace TransportTracker.App.ViewModels
             Title = "Map";
             Icon = "map_icon.png";
             
-            // Initialize commands
-            RefreshCommand = CreateAsyncCommand(RefreshData);
-            ChangeMapTypeCommand = CreateCommand<string>(OnMapTypeChanged);
-            ToggleFilterCommand = CreateCommand<string>(OnFilterToggled);
-            ZoomToUserLocationCommand = CreateAsyncCommand(ZoomToUserLocationAsync);
-            ToggleRoutesCommand = new Command(OnToggleRoutes);
-            ToggleClusteringCommand = new Command(OnToggleClustering);
-            ToggleStopsCommand = new Command(OnToggleStops);
-            ToggleHeatmapCommand = new Command(OnToggleHeatmap);
-            RouteSelectedCommand = new Command<string>(OnRouteSelected);
-            CancelProcessingCommand = new Command(OnCancelProcessing);
+            InitializeCommands();
             
             // Initialize batch service with progress reporting
             _batchService = new TransportBatchService(new Progress<BatchProcessingProgress>(p => ProcessingProgress = p));
@@ -242,73 +234,166 @@ namespace TransportTracker.App.ViewModels
                 OnCancelProcessing();
                 _processingCts = new CancellationTokenSource();
                 
-                // Generate test data for now
-                var vehicles = GenerateMockVehicleData(20);
-                var routes = GenerateMockRoutes();
-                var stops = GenerateMockStops(routes);
-                
-                // Use batch processing for data updates when available
-                if (_batchService != null)
+                // Track performance of data refresh
+                using (PerformanceMonitor.Instance.StartOperation("MapRefresh_Data"))
                 {
-                    try
-                    {                        
-                        // Process vehicles in batches (here we're not transforming the data, just demonstrating batch processing)
-                        vehicles = (await _batchService.ProcessVehiclesAsync(
-                            vehicles, 
-                            v => {
-                                // Apply any processing logic here
-                                return v;
-                            },
-                            _processingCts.Token
-                        )).ToList();
-                    }
-                    catch (OperationCanceledException)
+                    // Generate test data - in a real app, this would be API calls
+                    // We use ResponsiveUI to ensure the UI stays responsive during data generation
+                    List<TransportVehicle> vehicles = null;
+                    List<RouteInfo> routes = null;
+                    List<TransportStop> stops = null;
+                    
+                    await ResponsiveUI.RunResponsivelyAsync((progress, ct) => 
                     {
-                        System.Diagnostics.Debug.WriteLine("Vehicle processing was cancelled");
+                        // Register this background thread with the performance monitor
+                        PerformanceMonitor.Instance.RegisterCurrentThread("DataLoading", ThreadCategory.DataProcessing);
+                        
+                        // Generate mock data (simulate loading from API)
+                        vehicles = GenerateMockVehicleData(50);  // Increased to 50 vehicles for better testing
+                        progress.Report(0.3);
+                        
+                        routes = GenerateMockRoutes().ToList();
+                        progress.Report(0.6);
+                        
+                        stops = GenerateMockStops(routes);
+                        progress.Report(0.9);
+                        
+                    }, new Progress<double>(p => ProcessingProgress = new BatchProcessingProgress 
+                    { 
+                        PercentComplete = p * 100, 
+                        Status = "Loading data...",
+                        CurrentBatch = 1,
+                        TotalBatches = 1
+                    }), TimeSpan.FromMilliseconds(50), _processingCts.Token);
+                    
+                    // Use batch processing for data updates when available
+                    if (_batchService != null && vehicles != null)
+                    {
+                        try
+                        {            
+                            using (PerformanceMonitor.Instance.StartOperation("MapRefresh_BatchProcessing"))
+                            {            
+                                // Process vehicles in batches using our batch service
+                                vehicles = (await _batchService.ProcessVehiclesAsync(
+                                    vehicles, 
+                                    v => {
+                                        // Apply any processing logic here
+                                        return v;
+                                    },
+                                    _processingCts.Token
+                                )).ToList();
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            System.Diagnostics.Debug.WriteLine("Vehicle processing was cancelled");
+                        }
+                        catch (Exception ex)
+                        {
+                            // Record the failure in the performance monitor
+                            PerformanceMonitor.Instance.RecordFailure("MapRefresh_BatchProcessing", ex);
+                            System.Diagnostics.Debug.WriteLine($"Error in batch processing: {ex.Message}");
+                        }
                     }
-                }
-                
-                // Update map pins
-                if (EnableClustering && _clusterManager != null)
-                {
-                    ApplyClustering(vehicles);
-                }
-                else
-                {
-                    UpdateMapPins(vehicles);
-                }
-                
-                // Update routes and stops if enabled
-                if (ShowRoutes && _routeManager != null)
-                {
-                    UpdateRoutes(routes, stops);
-                }
-                else if (_routeManager != null)
-                {
-                    _routeManager.ClearAll();
-                }
-                
-                // Update heatmap if enabled
-                if (ShowHeatmap && _heatmapManager != null)
-                {
-                    await UpdateHeatmapAsync(vehicles, stops);
-                }
-                
-                // Update observable collections for binding
-                Routes.Clear();
-                foreach (var route in routes)
-                {
-                    Routes.Add(route);
-                }
-                
-                Stops.Clear();
-                foreach (var stop in stops)
-                {
-                    Stops.Add(stop);
+                    
+                    if (vehicles == null || _processingCts.Token.IsCancellationRequested)
+                    {
+                        IsBusy = false;
+                        return;
+                    }
+                    
+                    // Update the UI with the processed data
+                    using (PerformanceMonitor.Instance.StartOperation("MapRefresh_UpdateUI"))
+                    {
+                        // Update map pins with throttling to ensure UI responsiveness
+                        await UIUtilities.ExecuteOnUIThreadAsync(async () =>
+                        {
+                            // Update map pins
+                            if (EnableClustering && _clusterManager != null)
+                            {
+                                ApplyClustering(vehicles);
+                            }
+                            else
+                            {
+                                UpdateMapPins(vehicles);
+                            }
+                        }, "MapUpdate_Pins");
+                        
+                        // Update routes and stops with performance monitoring
+                        if (routes != null && stops != null)
+                        {
+                            await UIUtilities.ExecuteOnUIThreadAsync(async () =>
+                            {
+                                using (PerformanceMonitor.Instance.StartOperation("MapUpdate_Routes"))
+                                {
+                                    if (ShowRoutes && _routeManager != null)
+                                    {
+                                        UpdateRoutes(routes, stops);
+                                    }
+                                    else if (_routeManager != null)
+                                    {
+                                        _routeManager.ClearAll();
+                                    }
+                                }
+                            }, "MapUpdate_Routes");
+                        }
+                        
+                        // Update heatmap if enabled - this is performance intensive so we monitor it
+                        if (ShowHeatmap && _heatmapManager != null && vehicles != null)
+                        {
+                            using (PerformanceMonitor.Instance.StartOperation("MapUpdate_Heatmap"))
+                            {
+                                try
+                                {
+                                    await UpdateHeatmapAsync(vehicles, stops);
+                                }
+                                catch (Exception ex)
+                                {
+                                    PerformanceMonitor.Instance.RecordFailure("MapUpdate_Heatmap", ex);
+                                }
+                            }
+                        }
+                        
+                        // Update observable collections for binding using batched UI updates
+                        if (routes != null)
+                        {
+                            using (PerformanceMonitor.Instance.StartOperation("MapUpdate_Collections"))
+                            {
+                                await UIUtilities.ExecuteOnUIThreadAsync(() =>
+                                {
+                                    Routes.Clear();
+                                }, "MapUpdate_ClearRoutes");
+                                
+                                // Update in batches to keep UI responsive
+                                await UIUtilities.BatchUIUpdateAsync(routes.ToList(), route =>
+                                {
+                                    Routes.Add(route);
+                                }, 10, 10, "MapUpdate_AddRoutes");
+                            }
+                        }
+                        
+                        if (stops != null)
+                        {
+                            using (PerformanceMonitor.Instance.StartOperation("MapUpdate_StopsCollection"))
+                            {
+                                await UIUtilities.ExecuteOnUIThreadAsync(() =>
+                                {
+                                    Stops.Clear();
+                                }, "MapUpdate_ClearStops");
+                                
+                                // Update in batches to keep UI responsive
+                                await UIUtilities.BatchUIUpdateAsync(stops, stop =>
+                                {
+                                    Stops.Add(stop);
+                                }, 20, 10, "MapUpdate_AddStops");
+                            }
+                        }
+                    }
                 }
             }
             catch (Exception ex)
             {
+                PerformanceMonitor.Instance.RecordFailure("MapRefresh_Data", ex);
                 System.Diagnostics.Debug.WriteLine($"Error refreshing map data: {ex.Message}");
             }
             finally
@@ -612,7 +697,7 @@ namespace TransportTracker.App.ViewModels
                 // Highlight the selected route if any
                 if (route.Id == SelectedRouteId)
                 {
-                    _routeManager.HighlightRoute(route.Id, true);
+                    _routeManager.HighlightRoute(routeId, true);
                 }
                 
                 // Hide routes that should be hidden
@@ -797,6 +882,93 @@ namespace TransportTracker.App.ViewModels
             {
                 _heatmapManager.CancelUpdates();
             }
+        }
+        
+        /// <summary>
+        /// Initialize commands with performance monitoring wrappers
+        /// </summary>
+        private void InitializeCommands()
+        {
+            // Initialize main commands with performance tracking
+            RefreshCommand = new Command(async () => 
+            {
+                using (PerformanceMonitor.Instance.StartOperation("Command_RefreshData"))
+                {
+                    await RefreshData();
+                }
+            });
+            
+            ChangeMapTypeCommand = new Command<string>((mapType) => 
+            {
+                using (PerformanceMonitor.Instance.StartOperation("Command_ChangeMapType"))
+                {
+                    OnMapTypeChanged(mapType);
+                }
+            });
+            
+            ToggleFilterCommand = new Command<string>((filterType) => 
+            {
+                using (PerformanceMonitor.Instance.StartOperation("Command_ToggleFilter"))
+                {
+                    OnFilterToggled(filterType);
+                }
+            });
+            
+            ZoomToUserLocationCommand = new Command(async () => 
+            {
+                using (PerformanceMonitor.Instance.StartOperation("Command_ZoomToUserLocation"))
+                {
+                    await ZoomToUserLocationAsync();
+                }
+            });
+            
+            ToggleRoutesCommand = new Command(() => 
+            {
+                using (PerformanceMonitor.Instance.StartOperation("Command_ToggleRoutes"))
+                {
+                    OnToggleRoutes();
+                }
+            });
+            
+            ToggleClusteringCommand = new Command(() => 
+            {
+                using (PerformanceMonitor.Instance.StartOperation("Command_ToggleClustering"))
+                {
+                    OnToggleClustering();
+                }
+            });
+            
+            ToggleStopsCommand = new Command(() => 
+            {
+                using (PerformanceMonitor.Instance.StartOperation("Command_ToggleStops"))
+                {
+                    OnToggleStops();
+                }
+            });
+            
+            ToggleHeatmapCommand = new Command(() => 
+            {
+                using (PerformanceMonitor.Instance.StartOperation("Command_ToggleHeatmap"))
+                {
+                    OnToggleHeatmap();
+                }
+            });
+            
+            RouteSelectedCommand = new Command<string>((routeId) => 
+            {
+                using (PerformanceMonitor.Instance.StartOperation("Command_RouteSelected"))
+                {
+                    OnRouteSelected(routeId);
+                }
+            });
+            
+            CancelProcessingCommand = new Command(() => 
+            {
+                using (PerformanceMonitor.Instance.StartOperation("Command_CancelProcessing"))
+                {
+                    OnCancelProcessing();
+                }
+            });
         }
         
         /// <summary>

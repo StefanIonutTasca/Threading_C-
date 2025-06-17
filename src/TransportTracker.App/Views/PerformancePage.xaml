@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:TransportTracker.App.ViewModels"
+             xmlns:converters="clr-namespace:TransportTracker.App.Core.Converters"
+             x:Class="TransportTracker.App.Views.PerformancePage"
+             Title="Performance Monitor">
+    
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:IsGreaterThanZeroConverter x:Key="IsGreaterThanZero" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+    
+    <ContentPage.BindingContext>
+        <viewmodels:PerformanceViewModel />
+    </ContentPage.BindingContext>
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Header with summary stats -->
+        <Grid Grid.Row="0" Padding="16" ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto">
+            <Frame Grid.Column="0" BackgroundColor="#f0f0f0" Margin="3" Padding="10">
+                <VerticalStackLayout HorizontalOptions="Center">
+                    <Label Text="Active Threads" FontAttributes="Bold" HorizontalOptions="Center" />
+                    <Label Text="{Binding ActiveThreadCount}" FontSize="24" HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Frame>
+            
+            <Frame Grid.Column="1" BackgroundColor="#f0f0f0" Margin="3" Padding="10">
+                <VerticalStackLayout HorizontalOptions="Center">
+                    <Label Text="Operations" FontAttributes="Bold" HorizontalOptions="Center" />
+                    <Label Text="{Binding TotalOperationCount}" FontSize="24" HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Frame>
+            
+            <Frame Grid.Column="2" BackgroundColor="#f0f0f0" Margin="3" Padding="10">
+                <VerticalStackLayout HorizontalOptions="Center">
+                    <Label Text="Uptime" FontAttributes="Bold" HorizontalOptions="Center" />
+                    <Label Text="{Binding Uptime}" FontSize="24" HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Frame>
+            
+            <Grid Grid.Row="1" Grid.ColumnSpan="3" Margin="3" ColumnDefinitions="*,Auto,Auto">
+                <Picker Grid.Column="0" Title="Category" 
+                        ItemsSource="{Binding Categories}" 
+                        SelectedItem="{Binding SelectedCategory}" />
+                
+                <Button Grid.Column="1" Text="Refresh" 
+                        Command="{Binding RefreshCommand}"
+                        Margin="5,0,0,0" />
+                
+                <Button Grid.Column="2" Text="Reset" 
+                        Command="{Binding ResetMetricsCommand}"
+                        Margin="5,0,0,0" />
+            </Grid>
+        </Grid>
+        
+        <!-- Performance data with tabs using standard controls -->
+        <Grid Grid.Row="1" RowDefinitions="Auto,*">
+            <!-- Tab headers -->
+            <Grid Grid.Row="0" ColumnDefinitions="*,*">
+                <Button x:Name="MetricsTabButton" Grid.Column="0" Text="Metrics" 
+                        BackgroundColor="#007AFF" TextColor="White" Clicked="OnMetricsTabClicked" 
+                        CornerRadius="0" Margin="0" />
+                <Button x:Name="ThreadsTabButton" Grid.Column="1" Text="Threads" 
+                        BackgroundColor="#E0E0E0" TextColor="Black" Clicked="OnThreadsTabClicked" 
+                        CornerRadius="0" Margin="0" />
+            </Grid>
+            
+            <!-- Tab content -->
+            <Grid Grid.Row="1">
+                <!-- Metrics Tab -->
+                <RefreshView x:Name="MetricsTab" IsRefreshing="{Binding IsRefreshing}" Command="{Binding RefreshCommand}" IsVisible="True">
+                    <CollectionView ItemsSource="{Binding Metrics}">
+                        <CollectionView.EmptyView>
+                            <Label Text="No metrics available" HorizontalOptions="Center" VerticalOptions="Center" />
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame Margin="5" Padding="10" BorderColor="LightGray">
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+                                        <!-- Operation name with status indicator -->
+                                        <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="Auto,*">
+                                            <BoxView Grid.Column="0" Color="{Binding StatusColor}" WidthRequest="12" HeightRequest="12" 
+                                                     CornerRadius="6" VerticalOptions="Center" Margin="0,0,8,0" />
+                                            <Label Grid.Column="1" Text="{Binding OperationName}" FontAttributes="Bold" />
+                                        </Grid>
+                                        
+                                        <!-- Category -->
+                                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding Category}" 
+                                               FontSize="Small" TextColor="DarkGray" />
+                                        
+                                        <!-- Execution counts -->
+                                        <HorizontalStackLayout Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" 
+                                                         Spacing="10">
+                                            <Label Text="{Binding ExecutionCount, StringFormat='Executions: {0}'}" FontSize="Small" />
+                                            <Label Text="{Binding FailureCount, StringFormat='Failures: {0}'}" 
+                                                   FontSize="Small" TextColor="Red" IsVisible="{Binding FailureCount, Converter={StaticResource IsGreaterThanZero}}" />
+                                        </HorizontalStackLayout>
+                                        
+                                        <!-- Execution times -->
+                                        <HorizontalStackLayout Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" 
+                                                         Spacing="10">
+                                            <Label Text="{Binding AverageExecutionTime, StringFormat='Avg: {0}'}" FontSize="Small" />
+                                            <Label Text="{Binding MaxExecutionTime, StringFormat='Max: {0}'}" FontSize="Small" />
+                                        </HorizontalStackLayout>
+                                        
+                                        <!-- Last execution -->
+                                        <Label Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" 
+                                               Text="{Binding LastExecutionTime, StringFormat='Last: {0}'}" 
+                                               FontSize="Small" TextColor="DarkGray" />
+                                    </Grid>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </RefreshView>
+                
+                <!-- Threads Tab -->
+                <RefreshView x:Name="ThreadsTab" IsRefreshing="{Binding IsRefreshing}" Command="{Binding RefreshCommand}" IsVisible="False">
+                    <CollectionView ItemsSource="{Binding Threads}">
+                        <CollectionView.EmptyView>
+                            <Label Text="No active threads" HorizontalOptions="Center" VerticalOptions="Center" />
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Frame Margin="5" Padding="10" BorderColor="LightGray">
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                                        <!-- Thread name with status indicator -->
+                                        <Grid Grid.Row="0" Grid.Column="0" ColumnDefinitions="Auto,*">
+                                            <BoxView Grid.Column="0" Color="{Binding StatusColor}" WidthRequest="12" HeightRequest="12" 
+                                                     CornerRadius="6" VerticalOptions="Center" Margin="0,0,8,0" />
+                                            <Label Grid.Column="1" Text="{Binding Name}" FontAttributes="Bold" />
+                                        </Grid>
+                                        
+                                        <!-- Category and Thread ID -->
+                                        <HorizontalStackLayout Grid.Row="0" Grid.Column="1">
+                                            <Label Text="{Binding Category}" FontSize="Small" TextColor="DarkGray" />
+                                            <Label Text="{Binding ThreadId, StringFormat='(ID: {0})'}" 
+                                                   FontSize="Small" TextColor="DarkGray" Margin="5,0,0,0" />
+                                        </HorizontalStackLayout>
+                                        
+                                        <!-- Status and duration -->
+                                        <HorizontalStackLayout Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" 
+                                                         Spacing="10">
+                                            <Label Text="{Binding Status, StringFormat='Status: {0}'}" FontSize="Small" />
+                                            <Label Text="{Binding Duration, StringFormat='Duration: {0}'}" FontSize="Small" />
+                                        </HorizontalStackLayout>
+                                        
+                                        <!-- Current operation -->
+                                        <Label Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" 
+                                               Text="{Binding CurrentOperation, StringFormat='Operation: {0}'}" 
+                                               FontSize="Small" />
+                                    </Grid>
+                                </Frame>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </RefreshView>
+            </Grid>
+        </Grid>
+    </Grid>
+</ContentPage>

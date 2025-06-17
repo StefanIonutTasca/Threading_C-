@@ -7,6 +7,7 @@
     xmlns:maps="clr-namespace:TransportTracker.App.Views.Maps"
     xmlns:charts="clr-namespace:TransportTracker.App.Views.Charts"
     xmlns:vehicles="clr-namespace:TransportTracker.App.Views.Vehicles"
+    xmlns:views="clr-namespace:TransportTracker.App.Views"
     Title="TransportTracker"
     FlyoutHeaderBehavior="Fixed"
     FlyoutVerticalScrollMode="Auto">
@@ -46,6 +47,11 @@
             Title="Map"
             ContentTemplate="{DataTemplate maps:MapView}"
             Route="MapPage" />
+        <ShellContent
+            Title="Performance"
+            Icon="settings"
+            ContentTemplate="{DataTemplate views:PerformancePage}"
+            Route="performance" />
     </FlyoutItem>
     
     <FlyoutItem Title="Charts" Icon="chart_icon.png">
