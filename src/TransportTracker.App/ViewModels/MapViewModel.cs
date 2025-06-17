@@ -37,7 +37,10 @@ namespace TransportTracker.App.ViewModels
         private RouteOverlayManager _routeManager;
         private HeatmapManager _heatmapManager;
         private TransportBatchService _batchService;
+        private ITransportApiService _apiService;
+        private ICacheManager _cacheManager;
         private CancellationTokenSource _processingCts;
+        private bool _useRealData = false; // Toggle between mock and real data
         private bool _showRoutes = true;
         private bool _enableClustering = false;
         private bool _showStops = true;
@@ -46,12 +49,17 @@ namespace TransportTracker.App.ViewModels
         private string _selectedRouteId;
         private BatchProcessingProgress _processingProgress;
 
-        public MapViewModel()
+        public MapViewModel(ITransportApiService apiService = null, ICacheManager cacheManager = null)
         {
             // Set view model properties
             Title = "Map";
             Icon = "map_icon.png";
             
+            // Initialize services
+            _cacheManager = cacheManager ?? new MemoryCacheManager();
+            _apiService = apiService ?? new TransportApiService(_cacheManager);
+            
+            // Initialize commands with performance monitoring
             InitializeCommands();
             
             // Initialize batch service with progress reporting
@@ -237,34 +245,110 @@ namespace TransportTracker.App.ViewModels
                 // Track performance of data refresh
                 using (PerformanceMonitor.Instance.StartOperation("MapRefresh_Data"))
                 {
-                    // Generate test data - in a real app, this would be API calls
-                    // We use ResponsiveUI to ensure the UI stays responsive during data generation
+                    // Variables to hold our data
                     List<TransportVehicle> vehicles = null;
                     List<RouteInfo> routes = null;
                     List<TransportStop> stops = null;
                     
-                    await ResponsiveUI.RunResponsivelyAsync((progress, ct) => 
+                    // Determine whether to use real API data or mock data
+                    if (_useRealData && _apiService != null)
                     {
-                        // Register this background thread with the performance monitor
-                        PerformanceMonitor.Instance.RegisterCurrentThread("DataLoading", ThreadCategory.DataProcessing);
-                        
-                        // Generate mock data (simulate loading from API)
-                        vehicles = GenerateMockVehicleData(50);  // Increased to 50 vehicles for better testing
-                        progress.Report(0.3);
-                        
-                        routes = GenerateMockRoutes().ToList();
-                        progress.Report(0.6);
-                        
-                        stops = GenerateMockStops(routes);
-                        progress.Report(0.9);
-                        
-                    }, new Progress<double>(p => ProcessingProgress = new BatchProcessingProgress 
-                    { 
-                        PercentComplete = p * 100, 
-                        Status = "Loading data...",
-                        CurrentBatch = 1,
-                        TotalBatches = 1
-                    }), TimeSpan.FromMilliseconds(50), _processingCts.Token);
+                        // Load data from API with progress reporting
+                        await ResponsiveUI.RunResponsivelyAsync(async (progress, ct) => 
+                        {
+                            // Register this background thread with the performance monitor
+                            PerformanceMonitor.Instance.RegisterCurrentThread("ApiDataLoading", ThreadCategory.DataProcessing);
+                            
+                            try
+                            {
+                                // Get active transport types for filtered query
+                                var activeTypes = _transportFilters
+                                    .Where(kv => kv.Value)
+                                    .Select(kv => kv.Key.ToLowerInvariant())
+                                    .ToList();
+                                
+                                // Start with API status check
+                                var isApiAvailable = await _apiService.CheckApiStatusAsync(ct);
+                                if (!isApiAvailable)
+                                {
+                                    throw new Exception("Transport API is not available. Using cached data if possible.");
+                                }
+                                
+                                // Load vehicles filtered by active transport types
+                                // Only bypass cache if this is a manual refresh
+                                bool bypassCache = IsRefreshing;
+                                
+                                // Get vehicles for each active transport type
+                                var vehicleTasks = new List<Task<List<TransportVehicle>>>();
+                                foreach (var type in activeTypes)
+                                {
+                                    vehicleTasks.Add(_apiService.GetVehiclesAsync(type, bypassCache, ct));
+                                }
+                                
+                                var vehicleResults = await Task.WhenAll(vehicleTasks);
+                                vehicles = vehicleResults.SelectMany(v => v).ToList();
+                                progress.Report(0.3);
+                                
+                                // Load routes
+                                var routeTasks = new List<Task<List<RouteInfo>>>();
+                                foreach (var type in activeTypes)
+                                {
+                                    routeTasks.Add(_apiService.GetRoutesAsync(type, bypassCache, ct));
+                                }
+                                
+                                var routeResults = await Task.WhenAll(routeTasks);
+                                routes = routeResults.SelectMany(r => r).ToList();
+                                progress.Report(0.6);
+                                
+                                // Load stops for all routes
+                                stops = await _apiService.GetStopsAsync(null, bypassCache, ct);
+                                progress.Report(0.9);
+                            }
+                            catch (Exception ex)
+                            {
+                                // Log the error
+                                PerformanceMonitor.Instance.RecordFailure("ApiDataLoading", ex);
+                                System.Diagnostics.Debug.WriteLine($"API data loading error: {ex.Message}");
+                                
+                                // Fall back to mock data
+                                vehicles = GenerateMockVehicleData(50);
+                                routes = GenerateMockRoutes().ToList();
+                                stops = GenerateMockStops(routes);
+                            }
+                        }, new Progress<double>(p => ProcessingProgress = new BatchProcessingProgress 
+                        { 
+                            PercentComplete = p * 100, 
+                            Status = "Loading transport data from API...",
+                            CurrentBatch = 1,
+                            TotalBatches = 1
+                        }), TimeSpan.FromMilliseconds(50), _processingCts.Token);
+                    }
+                    else
+                    {
+                        // Use mock data with progress reporting
+                        await ResponsiveUI.RunResponsivelyAsync((progress, ct) => 
+                        {
+                            // Register this background thread with the performance monitor
+                            PerformanceMonitor.Instance.RegisterCurrentThread("MockDataLoading", ThreadCategory.DataProcessing);
+                            
+                            // Generate mock data (simulate loading from API)
+                            vehicles = GenerateMockVehicleData(50);
+                            progress.Report(0.3);
+                            
+                            routes = GenerateMockRoutes().ToList();
+                            progress.Report(0.6);
+                            
+                            stops = GenerateMockStops(routes);
+                            progress.Report(0.9);
+                            
+                        }, new Progress<double>(p => ProcessingProgress = new BatchProcessingProgress 
+                        { 
+                            PercentComplete = p * 100, 
+                            Status = "Loading mock data...",
+                            CurrentBatch = 1,
+                            TotalBatches = 1
+                        }), TimeSpan.FromMilliseconds(50), _processingCts.Token);
+                    }
                     
                     // Use batch processing for data updates when available
                     if (_batchService != null && vehicles != null)

@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:TransportTracker.App.ViewModels"
+             xmlns:statistics="clr-namespace:TransportTracker.App.Models.Statistics"
+             x:DataType="viewmodels:TransportStatisticsViewModel"
+             x:Class="TransportTracker.App.Views.StatisticsPage"
+             Title="Transport Statistics">
+             
+    <ContentPage.BindingContext>
+        <viewmodels:TransportStatisticsViewModel />
+    </ContentPage.BindingContext>
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Header with controls -->
+        <Grid Grid.Row="0" 
+              ColumnDefinitions="*,Auto,Auto" 
+              Padding="10"
+              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
+              
+            <Label Text="{Binding LastUpdatedText}" 
+                   TextColor="White"
+                   Grid.Column="0"
+                   VerticalOptions="Center" />
+                   
+            <Button Text="Refresh"
+                    Grid.Column="1"
+                    Command="{Binding RefreshCommand}"
+                    IsEnabled="{Binding IsCalculating, Converter={StaticResource InverseBoolConverter}}"
+                    Margin="5,0" />
+                    
+            <Button Text="{Binding UseRealData, StringFormat='Using {0:real|mock} data. Tap to change'}"
+                    Grid.Column="2"
+                    Command="{Binding ToggleDataSourceCommand}" />
+        </Grid>
+        
+        <ScrollView Grid.Row="1">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto" 
+                  Padding="15" 
+                  RowSpacing="20">
+                
+                <!-- Loading indicator -->
+                <ActivityIndicator IsRunning="{Binding IsCalculating}" 
+                                   IsVisible="{Binding IsCalculating}"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center"
+                                   Grid.Row="0" />
+                                   
+                <!-- No data message -->
+                <VerticalStackLayout IsVisible="{Binding HasData, Converter={StaticResource InverseBoolConverter}}"
+                                     Grid.Row="0"
+                                     HorizontalOptions="Center">
+                    <Image Source="no_data_icon.png"
+                           HeightRequest="100"
+                           Margin="0,20" />
+                    <Label Text="No statistics data available"
+                           HorizontalOptions="Center"
+                           FontSize="18" />
+                    <Label Text="Tap Refresh to load data"
+                           HorizontalOptions="Center"
+                           FontSize="14"
+                           Opacity="0.7" />
+                </VerticalStackLayout>
+                
+                <!-- System Summary Card -->
+                <Frame Grid.Row="0" 
+                       IsVisible="{Binding HasData}"
+                       BorderColor="{StaticResource Primary}"
+                       CornerRadius="8"
+                       HasShadow="True">
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="15">
+                        <Label Text="System Overview" 
+                               FontSize="18" 
+                               FontAttributes="Bold"
+                               Grid.Row="0" />
+                               
+                        <Grid Grid.Row="1" 
+                              ColumnDefinitions="*,*" 
+                              RowDefinitions="Auto,Auto,Auto,Auto"
+                              ColumnSpacing="15"
+                              RowSpacing="10">
+                              
+                            <!-- First column -->
+                            <VerticalStackLayout Grid.Row="0" Grid.Column="0">
+                                <Label Text="Total Vehicles" FontSize="14" Opacity="0.7" />
+                                <Label Text="{Binding CurrentMetrics.SystemSummary.TotalVehicles}" FontSize="24" FontAttributes="Bold" />
+                            </VerticalStackLayout>
+                            
+                            <VerticalStackLayout Grid.Row="1" Grid.Column="0">
+                                <Label Text="Total Routes" FontSize="14" Opacity="0.7" />
+                                <Label Text="{Binding CurrentMetrics.SystemSummary.TotalRoutes}" FontSize="24" FontAttributes="Bold" />
+                            </VerticalStackLayout>
+                            
+                            <VerticalStackLayout Grid.Row="2" Grid.Column="0">
+                                <Label Text="Total Stops" FontSize="14" Opacity="0.7" />
+                                <Label Text="{Binding CurrentMetrics.SystemSummary.TotalStops}" FontSize="24" FontAttributes="Bold" />
+                            </VerticalStackLayout>
+                            
+                            <VerticalStackLayout Grid.Row="3" Grid.Column="0">
+                                <Label Text="Passengers" FontSize="14" Opacity="0.7" />
+                                <Label Text="{Binding CurrentMetrics.SystemSummary.TotalPassengers}" FontSize="24" FontAttributes="Bold" />
+                            </VerticalStackLayout>
+                            
+                            <!-- Second column -->
+                            <VerticalStackLayout Grid.Row="0" Grid.Column="1">
+                                <Label Text="System Occupancy" FontSize="14" Opacity="0.7" />
+                                <Label Text="{Binding CurrentMetrics.SystemSummary.SystemOccupancy, StringFormat='{0:F1}%'}" FontSize="24" FontAttributes="Bold" />
+                            </VerticalStackLayout>
+                            
+                            <VerticalStackLayout Grid.Row="1" Grid.Column="1">
+                                <Label Text="On-Time Performance" FontSize="14" Opacity="0.7" />
+                                <Label Text="{Binding CurrentMetrics.SystemSummary.OnTimePerformance, StringFormat='{0:F1}%'}" FontSize="24" FontAttributes="Bold" />
+                            </VerticalStackLayout>
+                            
+                            <VerticalStackLayout Grid.Row="2" Grid.Column="1">
+                                <Label Text="Efficiency Score" FontSize="14" Opacity="0.7" />
+                                <ProgressBar Progress="{Binding CurrentMetrics.SystemSummary.EfficiencyScore, Converter={StaticResource PercentageConverter}}" 
+                                             ProgressColor="{StaticResource Primary}" 
+                                             HeightRequest="10" />
+                                <Label Text="{Binding CurrentMetrics.SystemSummary.EfficiencyScore, StringFormat='{0:F1}/100'}"
+                                       HorizontalOptions="End" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </Grid>
+                </Frame>
+                
+                <!-- Transport Type Statistics -->
+                <Frame Grid.Row="1" 
+                       IsVisible="{Binding HasData}"
+                       BorderColor="{StaticResource Primary}"
+                       CornerRadius="8"
+                       HasShadow="True">
+                    <Grid RowDefinitions="Auto,*" RowSpacing="15">
+                        <Label Text="Transport Type Statistics" 
+                               FontSize="18" 
+                               FontAttributes="Bold"
+                               Grid.Row="0" />
+                               
+                        <CollectionView Grid.Row="1" 
+                                      ItemsSource="{Binding TransportTypeStats}"
+                                      EmptyView="No transport type data available">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="statistics:TransportTypeMetric">
+                                    <Grid Padding="0,8" RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto">
+                                        <!-- Transport Type Indicator -->
+                                        <Rectangle Grid.RowSpan="2" 
+                                                   Grid.Column="0"
+                                                   Fill="{Binding Color}"
+                                                   WidthRequest="5"
+                                                   HeightRequest="40"
+                                                   Margin="0,0,10,0" />
+                                                   
+                                        <!-- Transport Type Name and Count -->
+                                        <StackLayout Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
+                                            <Label Text="{Binding Type}" FontAttributes="Bold" />
+                                            <Label Text="{Binding VehicleCount, StringFormat='({0} vehicles)'}" 
+                                                   Opacity="0.7"
+                                                   Margin="5,0,0,0" />
+                                        </StackLayout>
+                                        
+                                        <!-- Transport Metrics -->
+                                        <StackLayout Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="15">
+                                            <Label Text="{Binding AverageSpeed, StringFormat='Speed: {0:F1} km/h'}" FontSize="12" />
+                                            <Label Text="{Binding AverageOccupancy, StringFormat='Occupancy: {0:F1}%'}" FontSize="12" />
+                                        </StackLayout>
+                                        
+                                        <!-- Delay Info -->
+                                        <StackLayout Grid.RowSpan="2" Grid.Column="2" VerticalOptions="Center">
+                                            <Label Text="{Binding DelayedPercentage, StringFormat='{0:F1}% Delayed'}" 
+                                                   TextColor="{Binding DelayedPercentage, Converter={StaticResource DelayColorConverter}}"
+                                                   FontSize="14" 
+                                                   HorizontalTextAlignment="End" />
+                                            <Label Text="{Binding AverageDelay, StringFormat='Avg {0:F1} min'}" 
+                                                   FontSize="12"
+                                                   Opacity="0.7"
+                                                   HorizontalTextAlignment="End" />
+                                        </StackLayout>
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </Grid>
+                </Frame>
+                
+                <!-- Popular Routes -->
+                <Frame Grid.Row="2" 
+                       IsVisible="{Binding HasData}"
+                       BorderColor="{StaticResource Primary}"
+                       CornerRadius="8"
+                       HasShadow="True">
+                    <Grid RowDefinitions="Auto,*" RowSpacing="15">
+                        <Label Text="Most Popular Routes" 
+                               FontSize="18" 
+                               FontAttributes="Bold"
+                               Grid.Row="0" />
+                               
+                        <CollectionView Grid.Row="1" 
+                                      ItemsSource="{Binding RoutePopularity}"
+                                      EmptyView="No route popularity data available">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="statistics:RoutePopularityMetric">
+                                    <Grid Padding="5" RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto">
+                                        <!-- Route Color Indicator -->
+                                        <Rectangle Grid.RowSpan="2" 
+                                                   Grid.Column="0"
+                                                   Fill="{Binding Color}"
+                                                   WidthRequest="5"
+                                                   HeightRequest="50"
+                                                   Margin="0,0,10,0" />
+                                                   
+                                        <!-- Route Name and Type -->
+                                        <StackLayout Grid.Row="0" Grid.Column="1">
+                                            <Label Text="{Binding RouteName}" FontAttributes="Bold" />
+                                            <Label Text="{Binding TransportType}" FontSize="12" Opacity="0.7" />
+                                        </StackLayout>
+                                        
+                                        <!-- Vehicle Count -->
+                                        <Label Grid.Row="1" Grid.Column="1" 
+                                               Text="{Binding VehicleCount, StringFormat='{0} vehicles'}" 
+                                               FontSize="12" />
+                                        
+                                        <!-- Passenger Count -->
+                                        <StackLayout Grid.RowSpan="2" Grid.Column="2" VerticalOptions="Center">
+                                            <Label Text="{Binding PassengerCount, StringFormat='{0}'}" 
+                                                   FontAttributes="Bold"
+                                                   FontSize="18" 
+                                                   HorizontalTextAlignment="End" />
+                                            <Label Text="passengers" 
+                                                   FontSize="12"
+                                                   HorizontalTextAlignment="End" />
+                                        </StackLayout>
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </Grid>
+                </Frame>
+                
+                <!-- Activity Chart Placeholder -->
+                <Frame Grid.Row="3" 
+                       IsVisible="{Binding HasData}"
+                       BorderColor="{StaticResource Primary}"
+                       CornerRadius="8"
+                       HasShadow="True">
+                    <Grid RowDefinitions="Auto,*" RowSpacing="15">
+                        <Label Text="Activity by Hour" 
+                               FontSize="18" 
+                               FontAttributes="Bold"
+                               Grid.Row="0" />
+                               
+                        <!-- In a real app, this would be a chart component -->
+                        <VerticalStackLayout Grid.Row="1" Spacing="10">
+                            <Label Text="Chart visualization goes here" 
+                                   HorizontalOptions="Center"
+                                   Opacity="0.7" />
+                            <Grid HeightRequest="150" Margin="10,10,10,0">
+                                <!-- Simple bar chart visualization -->
+                                <CollectionView ItemsSource="{Binding ActivityOverTime}"
+                                               HorizontalOptions="Fill"
+                                               ItemsLayout="HorizontalList">
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate x:DataType="statistics:TimeSeriesDataPoint">
+                                            <Grid Padding="2" WidthRequest="20">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                
+                                                <!-- Bar representing the value -->
+                                                <Rectangle Grid.Row="0" 
+                                                           Fill="{StaticResource Primary}"
+                                                           VerticalOptions="End"
+                                                           HeightRequest="{Binding Value, Converter={StaticResource ChartValueConverter}}" />
+                                                           
+                                                <!-- Hour label -->
+                                                <Label Grid.Row="1"
+                                                       Text="{Binding Category}"
+                                                       FontSize="10"
+                                                       HorizontalTextAlignment="Center" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                </CollectionView>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Grid>
+                </Frame>
+            </Grid>
+        </ScrollView>
+    </Grid>
+</ContentPage>

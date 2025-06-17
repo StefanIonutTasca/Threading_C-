@@ -49,9 +49,15 @@
             Route="MapPage" />
         <ShellContent
             Title="Performance"
-            Icon="settings"
+            Icon="speed_icon.png"
             ContentTemplate="{DataTemplate views:PerformancePage}"
             Route="performance" />
+            
+        <ShellContent
+            Title="Statistics"
+            Icon="chart_icon.png"
+            ContentTemplate="{DataTemplate views:StatisticsPage}"
+            Route="statistics" />
     </FlyoutItem>
     
     <FlyoutItem Title="Charts" Icon="chart_icon.png">
