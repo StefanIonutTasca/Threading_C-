@@ -23,6 +23,7 @@ namespace TransportTracker.App.ViewModels
         private string _nextStopEta;
         private string _delayText;
         private bool _isDelayed;
+        private bool _isLiveUpdating;
         private ObservableCollection<StopInfo> _nextStops;
         private string _vehicleIcon;
         private CancellationTokenSource _liveUpdatesCts;
@@ -70,6 +71,15 @@ namespace TransportTracker.App.ViewModels
         {
             get => _isDelayed;
             set => SetProperty(ref _isDelayed, value);
+        }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether live updates are being received
+        /// </summary>
+        public bool IsLiveUpdating
+        {
+            get => _isLiveUpdating;
+            set => SetProperty(ref _isLiveUpdating, value);
         }
         
         /// <summary>
@@ -203,6 +213,9 @@ namespace TransportTracker.App.ViewModels
             _liveUpdatesCts?.Cancel();
             _liveUpdatesCts?.Dispose();
             _liveUpdatesCts = null;
+            
+            // Reset live updating flag
+            MainThread.BeginInvokeOnMainThread(() => IsLiveUpdating = false);
         }
         
         private async Task ShowOnMapAsync()
@@ -254,6 +267,9 @@ namespace TransportTracker.App.ViewModels
             
             // Create new cancellation token source
             _liveUpdatesCts = new CancellationTokenSource();
+            
+            // Set live updating flag
+            MainThread.BeginInvokeOnMainThread(() => IsLiveUpdating = true);
             
             // Start task to update vehicle data periodically
             Task.Run(async () =>

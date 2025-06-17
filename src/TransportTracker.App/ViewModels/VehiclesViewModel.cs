@@ -7,6 +7,7 @@ using System.Windows.Input;
 using TransportTracker.App.Core.MVVM;
 using TransportTracker.App.Services;
 using TransportTracker.App.Views.Maps;
+using TransportTracker.App.Views.Vehicles;
 
 namespace TransportTracker.App.ViewModels
 {
@@ -261,8 +262,10 @@ namespace TransportTracker.App.ViewModels
             SelectedVehicle = null; // Reset selection
             
             // Navigate to vehicle details page
-            // This will be implemented later when we have the page
-            await Task.CompletedTask;
+            await _navigationService.NavigateToAsync(nameof(VehicleDetailsPage), new Dictionary<string, object>
+            {
+                { "vehicleId", vehicle.Id }
+            });
         }
 
         private async Task LoadMoreItemsAsync()

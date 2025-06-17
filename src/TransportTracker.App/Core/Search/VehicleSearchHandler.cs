@@ -77,11 +77,7 @@ namespace TransportTracker.App.Core.Search
             if (item is TransportVehicle vehicle)
             {
                 // Select the vehicle in the view model
-                ViewModel?.SelectVehicleCommand?.Execute(vehicle);
-                
-                // Navigate to details
-                var route = $"{nameof(VehicleDetailsPage)}?id={vehicle.Id}";
-                Shell.Current.GoToAsync(route);
+                ViewModel?.VehicleSelectedCommand?.Execute(vehicle);
             }
         }
     }
