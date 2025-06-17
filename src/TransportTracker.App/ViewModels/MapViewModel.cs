@@ -8,9 +8,15 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.Maui.Controls.Maps;
 using Microsoft.Maui.Devices.Sensors;
-using Microsoft.Maui.Maps;
-using TransportTracker.App.Core.MVVM;
-using TransportTracker.App.Views.Maps;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using TransportTracker.App.Core.Processing;
+using TransportTracker.App.Models;
 using TransportTracker.App.Views.Maps.Clustering;
 using TransportTracker.App.Views.Maps.Overlays;
 
@@ -27,10 +33,16 @@ namespace TransportTracker.App.ViewModels
         private Map _map;
         private VehicleClusterManager _clusterManager;
         private RouteOverlayManager _routeManager;
+        private HeatmapManager _heatmapManager;
+        private TransportBatchService _batchService;
+        private CancellationTokenSource _processingCts;
         private bool _showRoutes = true;
-        private bool _enableClustering = true;
-        private string _selectedRouteId;
+        private bool _enableClustering = false;
         private bool _showStops = true;
+        private bool _showHeatmap = false;
+        private double _heatmapOpacity = 0.7;
+        private string _selectedRouteId;
+        private BatchProcessingProgress _processingProgress;
 
         public MapViewModel()
         {
@@ -43,10 +55,15 @@ namespace TransportTracker.App.ViewModels
             ChangeMapTypeCommand = CreateCommand<string>(OnMapTypeChanged);
             ToggleFilterCommand = CreateCommand<string>(OnFilterToggled);
             ZoomToUserLocationCommand = CreateAsyncCommand(ZoomToUserLocationAsync);
-            ToggleRoutesCommand = CreateCommand(OnToggleRoutes);
-            ToggleClusteringCommand = CreateCommand(OnToggleClustering);
-            ToggleStopsCommand = CreateCommand(OnToggleStops);
-            SelectRouteCommand = CreateCommand<string>(OnRouteSelected);
+            ToggleRoutesCommand = new Command(OnToggleRoutes);
+            ToggleClusteringCommand = new Command(OnToggleClustering);
+            ToggleStopsCommand = new Command(OnToggleStops);
+            ToggleHeatmapCommand = new Command(OnToggleHeatmap);
+            RouteSelectedCommand = new Command<string>(OnRouteSelected);
+            CancelProcessingCommand = new Command(OnCancelProcessing);
+            
+            // Initialize batch service with progress reporting
+            _batchService = new TransportBatchService(new Progress<BatchProcessingProgress>(p => ProcessingProgress = p));
             
             // Initialize filters for transport types
             _transportFilters = new Dictionary<string, bool>
@@ -125,7 +142,9 @@ namespace TransportTracker.App.ViewModels
         public ICommand ToggleRoutesCommand { get; }
         public ICommand ToggleClusteringCommand { get; }
         public ICommand ToggleStopsCommand { get; }
-        public ICommand SelectRouteCommand { get; }
+        public ICommand ToggleHeatmapCommand { get; }
+        public ICommand RouteSelectedCommand { get; }
+        public ICommand CancelProcessingCommand { get; }
         
         public ObservableRangeCollection<Pin> VehiclePins { get; private set; }
         public ObservableRangeCollection<RouteInfo> Routes { get; private set; }
@@ -151,6 +170,36 @@ namespace TransportTracker.App.ViewModels
             set => SetProperty(ref _showStops, value);
         }
         
+        public bool ShowHeatmap
+        {
+            get => _showHeatmap;
+            set
+            {
+                if (SetProperty(ref _showHeatmap, value) && _heatmapManager != null)
+                {
+                    _heatmapManager.IsVisible = value;
+                }
+            }
+        }
+        
+        public double HeatmapOpacity
+        {
+            get => _heatmapOpacity;
+            set
+            {
+                if (SetProperty(ref _heatmapOpacity, value) && _heatmapManager != null)
+                {
+                    _heatmapManager.Opacity = value;
+                }
+            }
+        }
+        
+        public BatchProcessingProgress ProcessingProgress
+        {
+            get => _processingProgress;
+            private set => SetProperty(ref _processingProgress, value);
+        }
+        
         public string SelectedRouteId
         {
             get => _selectedRouteId;
@@ -170,9 +219,102 @@ namespace TransportTracker.App.ViewModels
         {
             _map = map;
             
-            // Initialize managers once we have a map reference
-            _clusterManager = new VehicleClusterManager(_map, VehiclePins.OfType<TransportVehicle>().ToList());
+            // Initialize managers with the map
+            _clusterManager = new VehicleClusterManager(_map);
             _routeManager = new RouteOverlayManager(_map);
+            _heatmapManager = new HeatmapManager(_map)
+            {
+                IsVisible = ShowHeatmap,
+                Opacity = HeatmapOpacity
+            };
+            
+            // Subscribe to heatmap progress updates
+            _heatmapManager.ProgressChanged += (sender, progress) => ProcessingProgress = progress;
+        }
+        
+        private async Task RefreshDataAsync()
+        {
+            try
+            {
+                IsBusy = true;
+                
+                // Cancel any ongoing processing
+                OnCancelProcessing();
+                _processingCts = new CancellationTokenSource();
+                
+                // Generate test data for now
+                var vehicles = GenerateMockVehicleData(20);
+                var routes = GenerateMockRoutes();
+                var stops = GenerateMockStops(routes);
+                
+                // Use batch processing for data updates when available
+                if (_batchService != null)
+                {
+                    try
+                    {                        
+                        // Process vehicles in batches (here we're not transforming the data, just demonstrating batch processing)
+                        vehicles = (await _batchService.ProcessVehiclesAsync(
+                            vehicles, 
+                            v => {
+                                // Apply any processing logic here
+                                return v;
+                            },
+                            _processingCts.Token
+                        )).ToList();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        System.Diagnostics.Debug.WriteLine("Vehicle processing was cancelled");
+                    }
+                }
+                
+                // Update map pins
+                if (EnableClustering && _clusterManager != null)
+                {
+                    ApplyClustering(vehicles);
+                }
+                else
+                {
+                    UpdateMapPins(vehicles);
+                }
+                
+                // Update routes and stops if enabled
+                if (ShowRoutes && _routeManager != null)
+                {
+                    UpdateRoutes(routes, stops);
+                }
+                else if (_routeManager != null)
+                {
+                    _routeManager.ClearAll();
+                }
+                
+                // Update heatmap if enabled
+                if (ShowHeatmap && _heatmapManager != null)
+                {
+                    await UpdateHeatmapAsync(vehicles, stops);
+                }
+                
+                // Update observable collections for binding
+                Routes.Clear();
+                foreach (var route in routes)
+                {
+                    Routes.Add(route);
+                }
+                
+                Stops.Clear();
+                foreach (var stop in stops)
+                {
+                    Stops.Add(stop);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error refreshing map data: {ex.Message}");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
         
         private async Task RefreshData()
@@ -185,41 +327,11 @@ namespace TransportTracker.App.ViewModels
                 IsBusy = true;
                 IsRefreshing = true;
                 
-                // In a real app, we would call an API service here
-                // For demo purposes, we'll just generate some mock data
-                var vehicles = GenerateMockVehicles();
-                var routes = GenerateMockRoutes();
-                var stops = GenerateMockStops(routes);
-                
-                // Update vehicle pins on the map
-                UpdateMapPins(vehicles);
-                
-                // Update routes and stops collections
-                Routes.ReplaceRange(routes);
-                Stops.ReplaceRange(stops);
-                
-                // Apply clustering if enabled
-                if (_map != null)
-                {
-                    if (EnableClustering)
-                    {
-                        ApplyClustering(vehicles);
-                    }
-                    
-                    if (ShowRoutes)
-                    {
-                        UpdateRoutes(routes, stops);
-                    }
-                    
-                    if (ShowStops)
-                    {
-                        UpdateStops(stops);
-                    }
-                }
+                await RefreshDataAsync();
                 
                 IsDataLoaded = true;
                 LastUpdated = DateTime.Now;
-                VehicleCount = vehicles.Count;
+                VehicleCount = 20;
             }
             catch (Exception ex)
             {
@@ -231,7 +343,7 @@ namespace TransportTracker.App.ViewModels
             }
         }
         
-        private List<TransportVehicle> GenerateMockVehicles()
+        private List<TransportVehicle> GenerateMockVehicleData(int count)
         {
             var random = new Random();
             var vehicles = new List<TransportVehicle>();
@@ -239,7 +351,7 @@ namespace TransportTracker.App.ViewModels
             var types = new[] { "Bus", "Train", "Tram", "Subway", "Ferry" };
             var statuses = new[] { "On Time", "Delayed", "Out of Service", "Arriving", "Departing" };
             
-            for (int i = 1; i <= 50; i++)
+            for (int i = 1; i <= count; i++)
             {
                 var type = types[random.Next(types.Length)];
                 
@@ -368,10 +480,7 @@ namespace TransportTracker.App.ViewModels
                 .ToList();
                 
             // Update the cluster manager with the new vehicles
-            _clusterManager = new VehicleClusterManager(_map, vehiclePins);
-            
-            // Apply clustering
-            _clusterManager.UpdateClusters();
+            _clusterManager.UpdateClusters(vehiclePins);
             _clusterManager.ApplyClustersToMap(true);
         }
         
@@ -649,6 +758,72 @@ namespace TransportTracker.App.ViewModels
                 {
                     selectedRoute.IsSelected = true;
                 }
+            }
+        }
+        
+        /// <summary>
+        /// Toggles the heatmap overlay visibility
+        /// </summary>
+        private void OnToggleHeatmap()
+        {
+            ShowHeatmap = !ShowHeatmap;
+            
+            if (_heatmapManager != null)
+            {
+                _heatmapManager.IsVisible = ShowHeatmap;
+                
+                // Update the heatmap data if showing
+                if (ShowHeatmap)
+                {
+                    var vehicles = GenerateMockVehicleData(20);
+                    var routes = Routes.ToList();
+                    var stops = Stops.ToList();
+                    
+                    Task.Run(() => UpdateHeatmapAsync(vehicles, stops));
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Cancels any ongoing batch processing operations
+        /// </summary>
+        private void OnCancelProcessing()
+        {
+            _processingCts?.Cancel();
+            _processingCts?.Dispose();
+            _processingCts = null;
+            
+            if (_heatmapManager != null)
+            {
+                _heatmapManager.CancelUpdates();
+            }
+        }
+        
+        /// <summary>
+        /// Updates the heatmap with vehicle and stop data
+        /// </summary>
+        private async Task UpdateHeatmapAsync(List<TransportVehicle> vehicles, List<TransportStop> stops)
+        {
+            if (_heatmapManager == null || !ShowHeatmap)
+                return;
+                
+            try
+            {
+                // Use the heatmap manager to update with combined data
+                await _heatmapManager.UpdateFromCombinedDataAsync(
+                    vehicles,
+                    stops,
+                    0.008,
+                    _processingCts?.Token ?? CancellationToken.None
+                );
+            }
+            catch (OperationCanceledException)
+            {
+                System.Diagnostics.Debug.WriteLine("Heatmap update was cancelled");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error updating heatmap: {ex.Message}");
             }
         }
     }

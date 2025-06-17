@@ -68,45 +68,64 @@ namespace TransportTracker.App.Views.Maps.Clustering
         }
         
         /// <summary>
-        /// Updates clusters based on current vehicle positions
+        /// Updates the clusters based on current vehicle positions
         /// </summary>
         public void UpdateClusters()
         {
-            // Clear existing collections
+            UpdateClusters(_vehicles);
+        }
+        
+        /// <summary>
+        /// Updates the clusters with a new collection of vehicles
+        /// </summary>
+        public void UpdateClusters(IEnumerable<TransportVehicle> vehicles)
+        {
             _clusters.Clear();
-            _unclustered.Clear();
-
-            if (_vehicles == null || !_vehicles.Any())
+            
+            // Update the vehicles collection
+            _vehicles.Clear();
+            if (vehicles != null)
+            {
+                foreach (var vehicle in vehicles)
+                {
+                    _vehicles.Add(vehicle);
+                }
+            }
+            
+            // Skip clustering if there are no vehicles
+            if (_vehicles.Count == 0)
                 return;
                 
-            var vehiclesArray = _vehicles.ToArray();
-            var processedVehicles = new HashSet<string>();
+            // Process each vehicle
+            var remainingVehicles = new List<TransportVehicle>(_vehicles);
             
-            // Process each vehicle to find clusters
-            foreach (var vehicle in vehiclesArray)
+            while (remainingVehicles.Count > 0)
             {
-                if (processedVehicles.Contains(vehicle.Id))
-                    continue;
-                    
-                // Find all vehicles near this one
-                var nearbyVehicles = FindVehiclesWithinDistance(vehiclesArray, vehicle, _clusterDistanceThreshold);
+                // Take first vehicle as potential cluster center
+                var currentVehicle = remainingVehicles[0];
+                remainingVehicles.RemoveAt(0);
                 
-                // If we have enough vehicles for a cluster
-                if (nearbyVehicles.Count >= _minClusterSize)
+                // Find nearby vehicles within clustering radius
+                var nearbyVehicles = FindVehiclesWithinDistance(_vehicles.ToArray(), currentVehicle, _clusterDistanceThreshold);
+                
+                // Remove nearby vehicles from the remaining list
+                foreach (var vehicle in nearbyVehicles)
                 {
-                    // Create a new cluster
-                    var clusterCenter = CalculateClusterCenter(nearbyVehicles);
-                    var vehicleIds = nearbyVehicles.Select(v => v.Id).ToList();
-                    var vehicleTypes = new HashSet<string>(nearbyVehicles.Select(v => v.Type));
+                    remainingVehicles.Remove(vehicle);
+                }
+                
+                // Create a cluster if there are nearby vehicles or a single vehicle outside clustering distance
+                var allClusterVehicles = new List<TransportVehicle> { currentVehicle };
+                allClusterVehicles.AddRange(nearbyVehicles);
+                
+                if (allClusterVehicles.Count > 1 || allClusterVehicles.Count == 1)
+                {
+                    var clusterCenter = CalculateClusterCenter(allClusterVehicles);
+                    var vehicleIds = allClusterVehicles.Select(v => v.Id).ToList();
+                    var vehicleTypes = new HashSet<string>(allClusterVehicles.Select(v => v.Type));
                     
                     var cluster = new VehicleCluster(clusterCenter, vehicleIds, vehicleTypes);
                     _clusters.Add(cluster);
-                    
-                    // Mark all vehicles in this cluster as processed
-                    foreach (var nearVehicle in nearbyVehicles)
-                    {
-                        processedVehicles.Add(nearVehicle.Id);
-                    }
                 }
                 else
                 {
