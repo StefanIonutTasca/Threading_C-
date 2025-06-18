@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TransportTracker.Core.Services.Api.Transport;
+using TransportTracker.Core.Services;
 
 namespace TransportTracker.Core.Services.Api
 {
@@ -115,6 +117,89 @@ namespace TransportTracker.Core.Services.Api
             };
 
             return AddApiServices(services, apiConfigurations);
+        }
+        
+        /// <summary>
+        /// Adds the real-time transport API client implementation
+        /// </summary>
+        /// <param name="services">Service collection</param>
+        /// <param name="baseUrl">Base URL for the transport API</param>
+        /// <param name="apiKey">API key for authentication</param>
+        /// <param name="maxRetryAttempts">Maximum retry attempts for API calls</param>
+        /// <returns>Service collection for chaining</returns>
+        public static IServiceCollection AddTransportApiClient(
+            this IServiceCollection services,
+            string baseUrl,
+            string apiKey = null,
+            int maxRetryAttempts = 3)
+        {
+            if (services == null) throw new ArgumentNullException(nameof(services));
+            if (string.IsNullOrWhiteSpace(baseUrl)) throw new ArgumentException("Base URL cannot be null or empty", nameof(baseUrl));
+            
+            // Register HttpClient
+            services.AddHttpClient("TransportApiClient", client =>
+            {
+                client.BaseAddress = new Uri(baseUrl);
+                client.Timeout = TimeSpan.FromSeconds(30);
+                
+                // Set default headers
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+                
+                // Add API key to header if provided
+                if (!string.IsNullOrEmpty(apiKey))
+                {
+                    client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
+                }
+            });
+            
+            // Register ITransportApiClient implementation
+            services.AddSingleton<ITransportApiClient>(sp =>
+            {
+                var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+                var httpClient = httpClientFactory.CreateClient("TransportApiClient");
+                var logger = sp.GetRequiredService<ILogger<TransportApiClient>>();
+                
+                return new TransportApiClient(httpClient, logger, maxRetryAttempts);
+            });
+            
+            return services;
+        }
+        
+        /// <summary>
+        /// Adds the mock transport API client implementation for development and testing
+        /// </summary>
+        /// <param name="services">Service collection</param>
+        /// <returns>Service collection for chaining</returns>
+        public static IServiceCollection AddMockTransportApiClient(
+            this IServiceCollection services)
+        {
+            // Register MockApiService as the implementation of ITransportApiClient
+            services.AddSingleton<ITransportApiClient>(sp =>
+            {
+                var logger = sp.GetRequiredService<ILogger<MockApiService>>();
+                return new MockApiService(logger);
+            });
+            
+            return services;
+        }
+        
+        /// <summary>
+        /// Adds the transport data service which integrates API client with thread-safe collections
+        /// </summary>
+        /// <param name="services">Service collection</param>
+        /// <returns>Service collection for chaining</returns>
+        public static IServiceCollection AddTransportDataService(
+            this IServiceCollection services)
+        {
+            // Register TransportDataService
+            services.AddSingleton<TransportDataService>(sp =>
+            {
+                var apiClient = sp.GetRequiredService<ITransportApiClient>();
+                var logger = sp.GetRequiredService<ILogger<TransportDataService>>();
+                return new TransportDataService(apiClient, logger);
+            });
+            
+            return services;
         }
     }
 }
