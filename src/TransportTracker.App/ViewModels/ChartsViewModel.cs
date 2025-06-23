@@ -34,9 +34,21 @@ namespace TransportTracker.App.ViewModels
 
             // Initialize commands
             RefreshChartsCommand = CreateAsyncCommand(RefreshAllChartsAsync);
-            ChangeTimeRangeCommand = CreateCommand<int>(ChangeTimeRange);
-            SelectRouteCommand = CreateCommand<string>(SelectRoute);
-            SelectStopCommand = CreateCommand<string>(SelectStop);
+            ChangeTimeRangeCommand = CreateCommand((object param) =>
+{
+    if (param is int i)
+        ChangeTimeRange(i);
+});
+            SelectRouteCommand = CreateCommand((object param) =>
+{
+    if (param is string str)
+        SelectRoute(str);
+});
+            SelectStopCommand = CreateCommand((object param) =>
+{
+    if (param is string str)
+        SelectStop(str);
+});
 
             // Initialize collections
             ArrivalPredictions = new ObservableCollection<ChartEntry>();

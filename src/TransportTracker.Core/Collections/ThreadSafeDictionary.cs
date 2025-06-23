@@ -14,7 +14,7 @@ namespace TransportTracker.Core.Collections
     /// </summary>
     /// <typeparam name="TKey">Type of keys</typeparam>
     /// <typeparam name="TValue">Type of values</typeparam>
-    public class ThreadSafeDictionary<TKey, TValue> : IDictionary<TKey, TValue> where TKey : notnull
+    public class ThreadSafeDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IReadOnlyThreadSafeDictionary<TKey, TValue> where TKey : notnull
     {
         private readonly ConcurrentDictionary<TKey, TValue> _dictionary;
         private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
@@ -467,6 +467,107 @@ namespace TransportTracker.Core.Collections
         protected virtual void OnCollectionChanged()
         {
             CollectionChanged?.Invoke(this, EventArgs.Empty);
+        }
+        
+        /// <summary>
+        /// Takes a snapshot of the dictionary
+        /// </summary>
+        /// <returns>A copy of the current dictionary state</returns>
+        public Dictionary<TKey, TValue> ToSnapshot()
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                return new Dictionary<TKey, TValue>(_dictionary);
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+        
+        /// <summary>
+        /// Updates all items in the dictionary with data from the provided collection
+        /// </summary>
+        /// <param name="items">Collection of items to update the dictionary with</param>
+        public void UpdateAll(IEnumerable<KeyValuePair<TKey, TValue>> items)
+        {
+            if (items == null)
+            {
+                throw new ArgumentNullException(nameof(items));
+            }
+            
+            _lock.EnterWriteLock();
+            try
+            {
+                foreach (var item in items)
+                {
+                    if (_dictionary.TryGetValue(item.Key, out _))
+                    {
+                        _dictionary[item.Key] = item.Value;
+                        NotifyItemUpdated(item);
+                    }
+                    else
+                    {
+                        _dictionary[item.Key] = item.Value;
+                        OnItemAdded(item);
+                    }
+                }
+                
+                OnCollectionChanged();
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+        
+        /// <summary>
+        /// Notifies that an item in the dictionary has been updated
+        /// </summary>
+        /// <param name="item">The updated key-value pair</param>
+        public void NotifyItemUpdated(KeyValuePair<TKey, TValue> item)
+        {
+            OnItemUpdated(item);
+        }
+        
+        
+        /// <summary>
+        /// Gets an enumerable collection containing the keys for IReadOnlyDictionary implementation
+        /// </summary>
+        IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys
+        {
+            get
+            {
+                _lock.EnterReadLock();
+                try
+                {
+                    return _dictionary.Keys.ToList();
+                }
+                finally
+                {
+                    _lock.ExitReadLock();
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Gets an enumerable collection containing the values for IReadOnlyDictionary implementation
+        /// </summary>
+        IEnumerable<TValue> IReadOnlyDictionary<TKey, TValue>.Values
+        {
+            get
+            {
+                _lock.EnterReadLock();
+                try
+                {
+                    return _dictionary.Values.ToList();
+                }
+                finally
+                {
+                    _lock.ExitReadLock();
+                }
+            }
         }
     }
 }

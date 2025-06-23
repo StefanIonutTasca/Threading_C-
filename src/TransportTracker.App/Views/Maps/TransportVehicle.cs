@@ -9,6 +9,82 @@ namespace TransportTracker.App.Views.Maps
     /// </summary>
     public class TransportVehicle : INotifyPropertyChanged
     {
+        // --- Additional properties for ViewModel/XAML compatibility ---
+        /// <summary>
+        /// Gets or sets the route number displayed for the vehicle.
+        /// </summary>
+        public string RouteNumber { get; set; }
+
+        /// <summary>
+        /// Gets or sets the current speed of the vehicle (km/h).
+        /// </summary>
+        public double CurrentSpeed { get; set; }
+
+        /// <summary>
+        /// Gets or sets the color for the vehicle's representation (e.g., on map or UI).
+        /// </summary>
+        public string Color { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether the vehicle is delayed (for XAML assignment compatibility).
+        /// </summary>
+        public bool IsDelayed { get; set; } // Changed to get/set for assignment compatibility
+        // --- Added properties to match all ViewModel and service usages ---
+        /// <summary>
+        /// Gets or sets the display label for the vehicle (for map pins, etc.).
+        /// </summary>
+        public string Label { get; set; }
+
+        /// <summary>
+        /// Gets or sets the display address or description for the vehicle location.
+        /// </summary>
+        public string Address { get; set; }
+
+        /// <summary>
+        /// Gets or sets the vehicle's location (latitude/longitude as an object).
+        /// </summary>
+        public object Location { get; set; } // Use appropriate type if available (e.g., Location or Position)
+
+        /// <summary>
+        /// Gets or sets the route ID the vehicle is operating on.
+        /// </summary>
+        public string RouteId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the delay in minutes for the vehicle.
+        /// </summary>
+        public int DelayMinutes { get; set; }
+
+        /// <summary>
+        /// Gets or sets the start location (object or string as appropriate).
+        /// </summary>
+        public object StartLocation { get; set; }
+
+        /// <summary>
+        /// Gets or sets the end location (object or string as appropriate).
+        /// </summary>
+        public object EndLocation { get; set; }
+
+        /// <summary>
+        /// Gets or sets the scheduled departure time.
+        /// </summary>
+        public DateTime? ScheduledDeparture { get; set; }
+
+        /// <summary>
+        /// Gets or sets the actual departure time.
+        /// </summary>
+        public DateTime? ActualDeparture { get; set; }
+
+        /// <summary>
+        /// Gets or sets the scheduled arrival time.
+        /// </summary>
+        public DateTime? ScheduledArrival { get; set; }
+
+        /// <summary>
+        /// Gets or sets the expected arrival time.
+        /// </summary>
+        public DateTime? ExpectedArrival { get; set; }
+        // --- End added properties ---
         /// <summary>
         /// Gets or sets the unique identifier for the vehicle.
         /// </summary>
@@ -33,11 +109,6 @@ namespace TransportTracker.App.Views.Maps
         /// Gets or sets the next stop the vehicle will arrive at.
         /// </summary>
         public string NextStop { get; set; }
-
-        /// <summary>
-        /// Gets or sets additional information about the next arrival (time to arrival, etc.)
-        /// </summary>
-        public string NextArrivalInfo { get; set; }
 
         /// <summary>
         /// Gets or sets the status of the vehicle (e.g., On Time, Delayed, Out of Service).
@@ -79,10 +150,6 @@ namespace TransportTracker.App.Views.Maps
         /// </summary>
         public int Occupancy { get; set; }
 
-        /// <summary>
-        /// Gets a formatted string with occupancy information.
-        /// </summary>
-        public string OccupancyInfo => $"{Occupancy}/{Capacity} passengers ({OccupancyPercentage}% full)";
 
         /// <summary>
         /// Gets the occupancy percentage.
@@ -92,7 +159,7 @@ namespace TransportTracker.App.Views.Maps
         /// <summary>
         /// Gets a value indicating whether the vehicle is delayed.
         /// </summary>
-        public bool IsDelayed => Status?.Contains("Delay", StringComparison.OrdinalIgnoreCase) == true;
+        
 
         #region INotifyPropertyChanged
 
@@ -118,12 +185,12 @@ namespace TransportTracker.App.Views.Maps
         public bool IsOutOfService => Status?.Contains("Out of Service") ?? false;
 
         /// <summary>
-        /// Gets a descriptive string for the vehicle's next arrival.
+        /// Gets or sets a descriptive string for the vehicle's next arrival.
         /// </summary>
-        public string NextArrivalInfo => $"Next stop: {NextStop}";
+        public string NextArrivalInfo { get; set; }
 
         /// <summary>
-        /// Gets a descriptive string for the vehicle's occupancy.
+        /// Gets a formatted string with occupancy information.
         /// </summary>
         public string OccupancyInfo => $"{Occupancy}/{Capacity} passengers ({OccupancyPercentage:F0}%)";
 

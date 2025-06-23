@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using TransportTracker.App.Services;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using TransportTracker.App.Core.MVVM;
-using TransportTracker.App.Services;
+using TransportTracker.Core.Services;
 using TransportTracker.App.Views.Maps;
 using TransportTracker.App.Views.Vehicles;
 
@@ -71,14 +72,30 @@ namespace TransportTracker.App.ViewModels
             _selectedSortOption = SortOptions[0];
             
             // Create commands
-            RefreshCommand = CreateAsyncCommand(RefreshVehiclesAsync);
-            VehicleSelectedCommand = CreateAsyncCommand<TransportVehicle>(SelectVehicleAsync);
+            RefreshCommand = CreateAsyncCommand(async () => await RefreshVehiclesAsync());
+            VehicleSelectedCommand = CreateAsyncCommand(async (object param) => await SelectVehicleAsync(param));
             ToggleFiltersCommand = CreateCommand(ToggleFilters);
-            ToggleFilterCommand = CreateCommand<string>(ToggleTransportFilter);
-            ToggleStatusFilterCommand = CreateCommand<string>(ToggleStatusFilter);
-            SearchCommand = CreateCommand<string>(ExecuteSearch);
+            ToggleFilterCommand = CreateCommand((object param) =>
+{
+    if (param is string str)
+        ToggleTransportFilter(str);
+});
+            ToggleStatusFilterCommand = CreateCommand((object param) =>
+{
+    if (param is string str)
+        ToggleStatusFilter(str);
+});
+            SearchCommand = CreateCommand((object param) =>
+{
+    if (param is string str)
+        ExecuteSearch(str);
+});
             ClearSearchCommand = CreateCommand(ClearSearch);
-            ShowOnMapCommand = CreateAsyncCommand<TransportVehicle>(ShowVehicleOnMapAsync);
+            ShowOnMapCommand = CreateAsyncCommand(async (object param) =>
+{
+    if (param is TransportVehicle vehicle)
+        await ShowVehicleOnMapAsync(vehicle);
+});
             ApplySortCommand = CreateCommand(ApplySort);
             LoadMoreItemsCommand = CreateAsyncCommand(LoadMoreItemsAsync);
         }

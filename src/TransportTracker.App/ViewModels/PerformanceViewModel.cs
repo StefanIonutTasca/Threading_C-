@@ -12,7 +12,9 @@ namespace TransportTracker.App.ViewModels
     /// <summary>
     /// ViewModel for the performance monitoring page
     /// </summary>
-    public class PerformanceViewModel : ViewModelBase
+    using TransportTracker.App.Core.MVVM;
+
+public class PerformanceViewModel : BaseViewModel
     {
         private readonly PerformanceMonitor _performanceMonitor;
         private string _selectedCategory = "All";
@@ -241,7 +243,7 @@ namespace TransportTracker.App.ViewModels
     /// <summary>
     /// View model for a performance metric
     /// </summary>
-    public class MetricViewModel : ViewModelBase
+    public class MetricViewModel : BaseViewModel
     {
         /// <summary>
         /// Creates a new metric view model
@@ -317,7 +319,7 @@ namespace TransportTracker.App.ViewModels
     /// <summary>
     /// View model for thread information
     /// </summary>
-    public class ThreadViewModel : ViewModelBase
+    public class ThreadViewModel : BaseViewModel
     {
         /// <summary>
         /// Creates a new thread view model

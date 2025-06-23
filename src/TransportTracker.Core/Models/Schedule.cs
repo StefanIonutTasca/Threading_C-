@@ -25,6 +25,18 @@ namespace TransportTracker.Core.Models
         /// Vehicle assigned to this schedule, if any
         /// </summary>
         public string VehicleId { get; set; }
+        
+        /// <summary>
+        /// ID of the starting stop for this schedule
+        /// </summary>
+        [Required]
+        public string StartStopId { get; set; }
+        
+        /// <summary>
+        /// ID of the ending stop for this schedule
+        /// </summary>
+        [Required]
+        public string EndStopId { get; set; }
 
         /// <summary>
         /// Navigation property for the vehicle
@@ -42,6 +54,11 @@ namespace TransportTracker.Core.Models
         /// </summary>
         [Required]
         public DateTime ArrivalTime { get; set; }
+        
+        /// <summary>
+        /// Real-time estimated arrival time at the destination
+        /// </summary>
+        public DateTime EstimatedArrivalTime { get; set; }
 
         /// <summary>
         /// Days of the week when this schedule is active (bit flags: 1=Monday, 2=Tuesday, 4=Wednesday, etc.)
@@ -87,6 +104,32 @@ namespace TransportTracker.Core.Models
             
             // Check if this day's bit is set in the ServiceDays
             return (ServiceDays & dayFlag) != 0;
+        }
+
+        /// <summary>
+        /// Creates a deep copy of the schedule object
+        /// </summary>
+        /// <returns>A new Schedule instance with the same values</returns>
+        public Schedule Clone()
+        {
+            return new Schedule
+            {
+                Id = this.Id,
+                RouteId = this.RouteId,
+                VehicleId = this.VehicleId,
+                StartStopId = this.StartStopId,
+                EndStopId = this.EndStopId,
+                DepartureTime = this.DepartureTime,
+                ArrivalTime = this.ArrivalTime,
+                EstimatedArrivalTime = this.EstimatedArrivalTime,
+                ServiceDays = this.ServiceDays,
+                IsPeakHour = this.IsPeakHour,
+                IsActive = this.IsActive,
+                Notes = this.Notes,
+                Status = this.Status,
+                DelayMinutes = this.DelayMinutes
+                // Navigation properties are not cloned to avoid circular references
+            };
         }
     }
 

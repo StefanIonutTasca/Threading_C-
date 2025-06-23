@@ -15,6 +15,23 @@ namespace TransportTracker.Core.Services.Api
     /// </summary>
     public class TransportApiClient : ITransportApiClient
     {
+        private static readonly EventId RoutesCacheHitEventId = new(1001, "RoutesCacheHit");
+        private static readonly EventId RoutesApiFetchedEventId = new(1002, "RoutesApiFetched");
+        private static readonly EventId RoutesApiEmptyEventId = new(1003, "RoutesApiEmpty");
+        private static readonly EventId RoutesApiErrorEventId = new(1004, "RoutesApiError");
+        private static readonly EventId StopsCacheHitEventId = new(1101, "StopsCacheHit");
+        private static readonly EventId StopsApiFetchedEventId = new(1102, "StopsApiFetched");
+        private static readonly EventId StopsApiEmptyEventId = new(1103, "StopsApiEmpty");
+        private static readonly EventId StopsApiErrorEventId = new(1104, "StopsApiError");
+        private static readonly EventId VehiclesCacheHitEventId = new(1201, "VehiclesCacheHit");
+        private static readonly EventId VehiclesApiFetchedEventId = new(1202, "VehiclesApiFetched");
+        private static readonly EventId VehiclesApiEmptyEventId = new(1203, "VehiclesApiEmpty");
+        private static readonly EventId VehiclesApiErrorEventId = new(1204, "VehiclesApiError");
+        private static readonly EventId SchedulesCacheHitEventId = new(1301, "SchedulesCacheHit");
+        private static readonly EventId SchedulesApiFetchedEventId = new(1302, "SchedulesApiFetched");
+        private static readonly EventId SchedulesApiEmptyEventId = new(1303, "SchedulesApiEmpty");
+        private static readonly EventId SchedulesApiErrorEventId = new(1304, "SchedulesApiError");
+
         private readonly HttpClient _httpClient;
         private readonly ILogger<TransportApiClient> _logger;
         private readonly SemaphoreSlim _connectionLock = new(1, 1);
@@ -93,8 +110,8 @@ namespace TransportTracker.Core.Services.Api
                 var cachedRoutes = await _routeCache.GetAsync(cacheKey);
                 if (cachedRoutes != null)
                 {
-                    _logger.LogDebug("Retrieved {Count} routes from cache", cachedRoutes.Count);
-                    return cachedRoutes;
+                    _logger.LogDebug("Retrieved route from cache");
+                    return cachedRoutes != null ? new[] { cachedRoutes } : Enumerable.Empty<Route>();
                 }
             }
             
@@ -106,62 +123,66 @@ namespace TransportTracker.Core.Services.Api
                 // Ensure we're authenticated
                 if (!await EnsureAuthenticatedAsync(cancellationToken))
                 {
-                    _logger.LogWarning("Failed to retrieve routes: Not authenticated");
+                    _logger.LogWarning(RoutesApiErrorEventId, "Failed to retrieve routes: Not authenticated");
                     return Array.Empty<Route>();
                 }
-                
+
                 // Make the API call with resilience handling
                 var routes = await responseHandler.ProcessWithRetriesAsync<List<Route>>(
                     async token => await _httpClient.GetAsync("routes", token),
                     _maxRetryAttempts,
                     200,
                     cancellationToken);
-                
+
                 if (routes != null && routes.Count > 0)
                 {
                     // Cache the results
-                    await _routeCache.SetAsync(cacheKey, routes, _defaultCacheExpiration);
+                    // If _routeCache expects a single Route, store each route separately
+foreach (var route in routes)
+{
+    await _routeCache.SetAsync($"route_{route.Id}", route, new CacheEntryOptions { AbsoluteExpiration = DateTimeOffset.UtcNow.Add(_defaultCacheExpiration) });
+}
                     _logger.LogInformation("Retrieved and cached {Count} routes from API", routes.Count);
                 }
                 else
                 {
-                    _logger.LogWarning("API returned no routes");
+                    _logger.LogWarning(RoutesApiEmptyEventId, "API returned no routes");
                 }
-                
-                return routes ?? Array.Empty<Route>();
+
+                return routes ?? Enumerable.Empty<Route>();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve routes from API");
-                
+                _logger.LogError(RoutesApiErrorEventId, ex, "Failed to retrieve routes from API");
+
                 // Try to fall back to cache even if forceRefresh was true
                 if (forceRefresh)
                 {
                     var cachedRoutes = await _routeCache.GetAsync(cacheKey);
                     if (cachedRoutes != null)
                     {
-                        _logger.LogInformation("Falling back to cached routes after API failure");
-                        return cachedRoutes;
+                        _logger.LogInformation(RoutesApiErrorEventId, "Falling back to cached routes after API failure");
+                        return cachedRoutes != null ? new[] { cachedRoutes } : Enumerable.Empty<Route>();
                     }
                 }
-                
+
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Gets a specific route by ID
         /// </summary>
-        public async Task<Route> GetRouteAsync(string routeId, bool includeStops = false, bool includeSchedules = false, 
+        public async Task<Route> GetRouteAsync(string routeId, bool includeStops = false, bool includeSchedules = false,
             bool forceRefresh = false, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(routeId))
             {
                 throw new ArgumentNullException(nameof(routeId));
             }
-            
+
             var cacheKey = $"route_{routeId}_{includeStops}_{includeSchedules}";
-            
+
             // Check if we need to refresh from the API
             if (!forceRefresh)
             {
@@ -173,134 +194,130 @@ namespace TransportTracker.Core.Services.Api
                     return cachedRoute;
                 }
             }
-            
+
             // Create a response handler for this request
             var responseHandler = new ApiResponseHandler(_logger, _apiUsageStatistics);
-            
+
             try
             {
                 // Ensure we're authenticated
                 if (!await EnsureAuthenticatedAsync(cancellationToken))
                 {
-                    _logger.LogWarning("Failed to retrieve route {RouteId}: Not authenticated", routeId);
+                    _logger.LogWarning(RoutesApiErrorEventId, "Failed to retrieve route {RouteId}: Not authenticated", routeId);
                     return null;
                 }
-                
+
                 // Build query string
                 var query = new List<string>();
                 if (includeStops) query.Add("include_stops=true");
                 if (includeSchedules) query.Add("include_schedules=true");
                 var queryString = query.Count > 0 ? "?" + string.Join("&", query) : "";
-                
+
                 // Make the API call with resilience handling
                 var route = await responseHandler.ProcessWithRetriesAsync<Route>(
                     async token => await _httpClient.GetAsync($"routes/{routeId}{queryString}", token),
                     _maxRetryAttempts,
                     200,
                     cancellationToken);
-                
+
                 if (route != null)
                 {
                     // Cache the result
-                    await _routeCache.SetAsync(cacheKey, route, _defaultCacheExpiration);
+                    await _routeCache.SetAsync(cacheKey, route, new CacheEntryOptions { AbsoluteExpiration = DateTimeOffset.UtcNow.Add(_defaultCacheExpiration) });
                     _logger.LogInformation("Retrieved and cached route {RouteId} from API", routeId);
                 }
                 else
                 {
-                    _logger.LogWarning("API returned no route for ID {RouteId}", routeId);
+                    _logger.LogWarning(RoutesApiEmptyEventId, "API returned no route for ID {RouteId}", routeId);
                 }
-                
+
                 return route;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve route {RouteId} from API", routeId);
-                
+                _logger.LogError(RoutesApiErrorEventId, ex, "Failed to retrieve route {RouteId} from API", routeId);
+
                 // Try to fall back to cache even if forceRefresh was true
                 if (forceRefresh)
                 {
                     var cachedRoute = await _routeCache.GetAsync(cacheKey);
                     if (cachedRoute != null)
                     {
-                        _logger.LogInformation("Falling back to cached route {RouteId} after API failure", routeId);
+                        _logger.LogInformation(RoutesApiErrorEventId, "Falling back to cached route {RouteId} after API failure", routeId);
                         return cachedRoute;
                     }
                 }
-                
+
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Gets all stops from the API
         /// </summary>
         public async Task<IEnumerable<Stop>> GetStopsAsync(bool forceRefresh = false, CancellationToken cancellationToken = default)
         {
             const string cacheKey = "all_stops";
-            
+
             // Check if we need to refresh from the API
             if (!forceRefresh)
             {
-                // Try to get from cache first
-                var cachedStops = await _stopCache.GetAsync(cacheKey);
-                if (cachedStops != null)
-                {
-                    _logger.LogDebug("Retrieved {Count} stops from cache", cachedStops.Count);
-                    return cachedStops;
-                }
-            }
-            
-            // Create a response handler for this request
-            var responseHandler = new ApiResponseHandler(_logger, _apiUsageStatistics);
-            
+
             try
             {
                 // Ensure we're authenticated
+                var responseHandler = new ApiResponseHandler(_logger, _apiUsageStatistics);
                 if (!await EnsureAuthenticatedAsync(cancellationToken))
                 {
-                    _logger.LogWarning("Failed to retrieve stops: Not authenticated");
+                    _logger.LogWarning(StopsApiErrorEventId, "Failed to retrieve stops: Not authenticated");
                     return Array.Empty<Stop>();
                 }
-                
+
                 // Make the API call with resilience handling
                 var stops = await responseHandler.ProcessWithRetriesAsync<List<Stop>>(
                     async token => await _httpClient.GetAsync("stops", token),
                     _maxRetryAttempts,
                     200,
                     cancellationToken);
-                
+
                 if (stops != null && stops.Count > 0)
                 {
                     // Cache the results
-                    await _stopCache.SetAsync(cacheKey, stops, _defaultCacheExpiration);
+                    // Store each stop individually in the cache
+                foreach (var stop in stops)
+                {
+                    var stopKey = $"stop_{stop.Id}";
+                    await _stopCache.SetAsync(stopKey, stop, new CacheEntryOptions { AbsoluteExpiration = DateTimeOffset.UtcNow.Add(_defaultCacheExpiration) });
+                }
                     _logger.LogInformation("Retrieved and cached {Count} stops from API", stops.Count);
                 }
                 else
                 {
-                    _logger.LogWarning("API returned no stops");
+                    _logger.LogWarning(StopsApiEmptyEventId, "API returned no stops");
                 }
-                
-                return stops ?? Array.Empty<Stop>();
+
+                return stops ?? Enumerable.Empty<Stop>();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve stops from API");
-                
+                _logger.LogError(StopsApiErrorEventId, ex, "Failed to retrieve stops from API");
+
                 // Try to fall back to cache even if forceRefresh was true
                 if (forceRefresh)
                 {
                     var cachedStops = await _stopCache.GetAsync(cacheKey);
                     if (cachedStops != null)
                     {
-                        _logger.LogInformation("Falling back to cached stops after API failure");
-                        return cachedStops;
+                        _logger.LogInformation(StopsApiErrorEventId, "Falling back to cached stops after API failure");
+                        return cachedStops != null ? new[] { cachedStops } : Enumerable.Empty<Stop>();
                     }
                 }
-                
                 throw;
             }
         }
-        
+        return Enumerable.Empty<Stop>();
+    }
+
         /// <summary>
         /// Gets a specific stop by ID
         /// </summary>
@@ -311,9 +328,9 @@ namespace TransportTracker.Core.Services.Api
             {
                 throw new ArgumentNullException(nameof(stopId));
             }
-            
+
             var cacheKey = $"stop_{stopId}_{includeRoutes}";
-            
+
             // Check if we need to refresh from the API
             if (!forceRefresh)
             {
@@ -325,68 +342,68 @@ namespace TransportTracker.Core.Services.Api
                     return cachedStop;
                 }
             }
-            
+
             // Create a response handler for this request
             var responseHandler = new ApiResponseHandler(_logger, _apiUsageStatistics);
-            
+
             try
             {
                 // Ensure we're authenticated
                 if (!await EnsureAuthenticatedAsync(cancellationToken))
                 {
-                    _logger.LogWarning("Failed to retrieve stop {StopId}: Not authenticated", stopId);
+                    _logger.LogWarning(StopsApiErrorEventId, "Failed to retrieve stop {StopId}: Not authenticated", stopId);
                     return null;
                 }
-                
+
                 // Build query string
                 var queryString = includeRoutes ? "?include_routes=true" : "";
-                
+
                 // Make the API call with resilience handling
                 var stop = await responseHandler.ProcessWithRetriesAsync<Stop>(
                     async token => await _httpClient.GetAsync($"stops/{stopId}{queryString}", token),
                     _maxRetryAttempts,
                     200,
                     cancellationToken);
-                
+
                 if (stop != null)
                 {
                     // Cache the result
-                    await _stopCache.SetAsync(cacheKey, stop, _defaultCacheExpiration);
+                    await _stopCache.SetAsync(cacheKey, stop, new CacheEntryOptions { AbsoluteExpiration = DateTimeOffset.UtcNow.Add(_defaultCacheExpiration) });
                     _logger.LogInformation("Retrieved and cached stop {StopId} from API", stopId);
                 }
                 else
                 {
-                    _logger.LogWarning("API returned no stop for ID {StopId}", stopId);
+                    _logger.LogWarning(StopsApiEmptyEventId, "API returned no stop for ID {StopId}", stopId);
                 }
-                
+
                 return stop;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve stop {StopId} from API", stopId);
-                
+                _logger.LogError(StopsApiErrorEventId, ex, "Failed to retrieve stop {StopId} from API", stopId);
+
                 // Try to fall back to cache even if forceRefresh was true
                 if (forceRefresh)
                 {
                     var cachedStop = await _stopCache.GetAsync(cacheKey);
                     if (cachedStop != null)
                     {
-                        _logger.LogInformation("Falling back to cached stop {StopId} after API failure", stopId);
+                        _logger.LogInformation(StopsApiErrorEventId, "Falling back to cached stop {StopId} after API failure", stopId);
                         return cachedStop;
                     }
                 }
-                
+
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Gets all vehicles from the API
         /// </summary>
         public async Task<IEnumerable<Vehicle>> GetVehiclesAsync(bool forceRefresh = false, CancellationToken cancellationToken = default)
         {
             const string cacheKey = "all_vehicles";
-            
+
             // Check if we need to refresh from the API
             if (!forceRefresh)
             {
@@ -394,75 +411,84 @@ namespace TransportTracker.Core.Services.Api
                 var cachedVehicles = await _vehicleCache.GetAsync(cacheKey);
                 if (cachedVehicles != null)
                 {
-                    _logger.LogDebug("Retrieved {Count} vehicles from cache", cachedVehicles.Count);
-                    return cachedVehicles;
+                    _logger.LogDebug(VehiclesCacheHitEventId, "Retrieved {Count} vehicles from cache", (cachedVehicles is ICollection<Vehicle> col) ? col.Count : 1);
+                    if (cachedVehicles is IEnumerable<Vehicle> list)
+                        return list;
+                    else if (cachedVehicles != null)
+                        return new[] { cachedVehicles };
+                    else
+                        return Enumerable.Empty<Vehicle>();
                 }
             }
-            
+
             // Create a response handler for this request
             var responseHandler = new ApiResponseHandler(_logger, _apiUsageStatistics);
-            
+
             try
             {
                 // Ensure we're authenticated
                 if (!await EnsureAuthenticatedAsync(cancellationToken))
                 {
-                    _logger.LogWarning("Failed to retrieve vehicles: Not authenticated");
+                    _logger.LogWarning(VehiclesApiErrorEventId, "Failed to retrieve vehicles: Not authenticated");
                     return Array.Empty<Vehicle>();
                 }
-                
+
                 // Make the API call with resilience handling
                 var vehicles = await responseHandler.ProcessWithRetriesAsync<List<Vehicle>>(
                     async token => await _httpClient.GetAsync("vehicles", token),
                     _maxRetryAttempts,
                     200,
                     cancellationToken);
-                
+
                 if (vehicles != null && vehicles.Count > 0)
                 {
-                    // Cache the results - but use a shorter expiration for real-time vehicles
-                    await _vehicleCache.SetAsync(cacheKey, vehicles, _vehicleCacheExpiration);
-                    _logger.LogInformation("Retrieved and cached {Count} vehicles from API", vehicles.Count);
+                    // Cache the results
+                    foreach (var vehicle in vehicles)
+                    {
+                        var vehicleKey = $"vehicle_{vehicle.Id}";
+                        await _vehicleCache.SetAsync(vehicleKey, vehicle, new CacheEntryOptions { AbsoluteExpiration = DateTimeOffset.UtcNow.Add(_vehicleCacheExpiration) });
+                    }
+                    _logger.LogInformation(VehiclesApiFetchedEventId, "Retrieved and cached {Count} vehicles from API", vehicles.Count);
                 }
                 else
                 {
-                    _logger.LogWarning("API returned no vehicles");
+                    _logger.LogWarning(VehiclesApiEmptyEventId, "API returned no vehicles");
                 }
-                
-                return vehicles ?? Array.Empty<Vehicle>();
+
+                return vehicles ?? Enumerable.Empty<Vehicle>();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve vehicles from API");
-                
+                _logger.LogError(VehiclesApiErrorEventId, ex, "Failed to retrieve vehicles from API");
+
                 // Try to fall back to cache even if forceRefresh was true
                 if (forceRefresh)
                 {
                     var cachedVehicles = await _vehicleCache.GetAsync(cacheKey);
                     if (cachedVehicles != null)
                     {
-                        _logger.LogInformation("Falling back to cached vehicles after API failure");
-                        return cachedVehicles;
+                        _logger.LogInformation(VehiclesApiErrorEventId, "Falling back to cached vehicles after API failure");
+                        return cachedVehicles is IEnumerable<Vehicle> list ? list : new[] { cachedVehicles };
                     }
                 }
-                
+
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Gets all vehicles for a specific route
         /// </summary>
-        public async Task<IEnumerable<Vehicle>> GetVehiclesByRouteAsync(string routeId, bool forceRefresh = false, 
+        public async Task<IEnumerable<Vehicle>> GetVehiclesByRouteAsync(string routeId, bool forceRefresh = false,
             CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(routeId))
             {
                 throw new ArgumentNullException(nameof(routeId));
             }
-            
+
             var cacheKey = $"route_{routeId}_vehicles";
-            
+
             // Check if we need to refresh from the API
             if (!forceRefresh)
             {
@@ -470,63 +496,71 @@ namespace TransportTracker.Core.Services.Api
                 var cachedVehicles = await _vehicleCache.GetAsync(cacheKey);
                 if (cachedVehicles != null)
                 {
-                    _logger.LogDebug("Retrieved {Count} vehicles for route {RouteId} from cache", cachedVehicles.Count, routeId);
-                    return cachedVehicles;
+                    _logger.LogDebug(VehiclesCacheHitEventId, "Retrieved {Count} vehicles for route {RouteId} from cache", (cachedVehicles is ICollection<Vehicle> col) ? col.Count : 1, routeId);
+                    if (cachedVehicles is IEnumerable<Vehicle> list)
+                        return list;
+                    else if (cachedVehicles != null)
+                        return new[] { cachedVehicles };
+                    else
+                        return Enumerable.Empty<Vehicle>();
                 }
             }
-            
+
             // Create a response handler for this request
             var responseHandler = new ApiResponseHandler(_logger, _apiUsageStatistics);
-            
+
             try
             {
                 // Ensure we're authenticated
                 if (!await EnsureAuthenticatedAsync(cancellationToken))
                 {
-                    _logger.LogWarning("Failed to retrieve vehicles for route {RouteId}: Not authenticated", routeId);
+                    _logger.LogWarning(VehiclesApiErrorEventId, "Failed to retrieve vehicles for route {RouteId}: Not authenticated", routeId);
                     return Array.Empty<Vehicle>();
                 }
-                
+
                 // Make the API call with resilience handling
                 var vehicles = await responseHandler.ProcessWithRetriesAsync<List<Vehicle>>(
                     async token => await _httpClient.GetAsync($"routes/{routeId}/vehicles", token),
                     _maxRetryAttempts,
                     200,
                     cancellationToken);
-                
+
                 if (vehicles != null && vehicles.Count > 0)
                 {
-                    // Cache the results - but use a shorter expiration for real-time vehicles
-                    await _vehicleCache.SetAsync(cacheKey, vehicles, _vehicleCacheExpiration);
-                    _logger.LogInformation("Retrieved and cached {Count} vehicles for route {RouteId} from API", 
-                        vehicles.Count, routeId);
+                    // Cache the results
+                    foreach (var vehicle in vehicles)
+                    {
+                        var vehicleKey = $"vehicle_{vehicle.Id}";
+                        await _vehicleCache.SetAsync(vehicleKey, vehicle, new CacheEntryOptions { AbsoluteExpiration = DateTimeOffset.UtcNow.Add(_vehicleCacheExpiration) });
+                    }
+                    _logger.LogInformation(VehiclesApiFetchedEventId, "Retrieved and cached {Count} vehicles for route {RouteId} from API", vehicles.Count, routeId);
                 }
                 else
                 {
-                    _logger.LogWarning("API returned no vehicles for route {RouteId}", routeId);
+                    _logger.LogWarning(VehiclesApiEmptyEventId, "API returned no vehicles for route {RouteId}", routeId);
                 }
-                
-                return vehicles ?? Array.Empty<Vehicle>();
+
+                return vehicles ?? Enumerable.Empty<Vehicle>();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve vehicles for route {RouteId} from API", routeId);
-                
+                _logger.LogError(VehiclesApiErrorEventId, ex, "Failed to retrieve vehicles for route {RouteId} from API", routeId);
+
                 // Try to fall back to cache even if forceRefresh was true
                 if (forceRefresh)
                 {
                     var cachedVehicles = await _vehicleCache.GetAsync(cacheKey);
                     if (cachedVehicles != null)
                     {
-                        _logger.LogInformation("Falling back to cached vehicles for route {RouteId} after API failure", routeId);
-                        return cachedVehicles;
+                        _logger.LogInformation(VehiclesApiErrorEventId, "Falling back to cached vehicles for route {RouteId} after API failure", routeId);
+                        return cachedVehicles is IEnumerable<Vehicle> list ? list : new[] { cachedVehicles };
                     }
                 }
-                
+
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Gets a specific vehicle by ID
         /// </summary>
@@ -537,9 +571,9 @@ namespace TransportTracker.Core.Services.Api
             {
                 throw new ArgumentNullException(nameof(vehicleId));
             }
-            
+
             var cacheKey = $"vehicle_{vehicleId}_{includeRoute}";
-            
+
             // Check if we need to refresh from the API
             if (!forceRefresh)
             {
@@ -547,50 +581,50 @@ namespace TransportTracker.Core.Services.Api
                 var cachedVehicle = await _vehicleCache.GetAsync(cacheKey);
                 if (cachedVehicle != null)
                 {
-                    _logger.LogDebug("Retrieved vehicle {VehicleId} from cache", vehicleId);
+                    _logger.LogDebug(VehiclesCacheHitEventId, "Retrieved vehicle {VehicleId} from cache", vehicleId);
                     return cachedVehicle;
                 }
             }
-            
+
             // Create a response handler for this request
             var responseHandler = new ApiResponseHandler(_logger, _apiUsageStatistics);
-            
+
             try
             {
                 // Ensure we're authenticated
                 if (!await EnsureAuthenticatedAsync(cancellationToken))
                 {
-                    _logger.LogWarning("Failed to retrieve vehicle {VehicleId}: Not authenticated", vehicleId);
+                    _logger.LogWarning(VehiclesApiErrorEventId, "Failed to retrieve vehicle {VehicleId}: Not authenticated", vehicleId);
                     return null;
                 }
-                
+
                 // Build query string
                 var queryString = includeRoute ? "?include_route=true" : "";
-                
+
                 // Make the API call with resilience handling
                 var vehicle = await responseHandler.ProcessWithRetriesAsync<Vehicle>(
                     async token => await _httpClient.GetAsync($"vehicles/{vehicleId}{queryString}", token),
                     _maxRetryAttempts,
                     200,
                     cancellationToken);
-                
+
                 if (vehicle != null)
                 {
-                    // Cache the result - but use a shorter expiration for real-time vehicles
-                    await _vehicleCache.SetAsync(cacheKey, vehicle, _vehicleCacheExpiration);
+                    // Cache the result
+                    await _vehicleCache.SetAsync(cacheKey, vehicle, new CacheEntryOptions { AbsoluteExpiration = DateTimeOffset.UtcNow.Add(_vehicleCacheExpiration) });
                     _logger.LogInformation("Retrieved and cached vehicle {VehicleId} from API", vehicleId);
                 }
                 else
                 {
                     _logger.LogWarning("API returned no vehicle for ID {VehicleId}", vehicleId);
                 }
-                
+
                 return vehicle;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve vehicle {VehicleId} from API", vehicleId);
-                
+                _logger.LogError(VehiclesApiErrorEventId, ex, "Failed to retrieve vehicle {VehicleId} from API", vehicleId);
+
                 // Try to fall back to cache even if forceRefresh was true
                 if (forceRefresh)
                 {
@@ -601,15 +635,15 @@ namespace TransportTracker.Core.Services.Api
                         return cachedVehicle;
                     }
                 }
-                
+
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Gets schedules for a route
         /// </summary>
-        public async Task<IEnumerable<Schedule>> GetSchedulesForRouteAsync(string routeId, 
+        public async Task<IEnumerable<Schedule>> GetSchedulesForRouteAsync(string routeId,
             DateTime? startTime = null, DateTime? endTime = null,
             bool forceRefresh = false, CancellationToken cancellationToken = default)
         {
@@ -617,14 +651,14 @@ namespace TransportTracker.Core.Services.Api
             {
                 throw new ArgumentNullException(nameof(routeId));
             }
-            
+
             // Build cache key based on parameters
             var timeKey = startTime.HasValue || endTime.HasValue ?
                 $"{startTime?.ToString("yyyyMMddHHmm") ?? "start"}_to_{endTime?.ToString("yyyyMMddHHmm") ?? "end"}" :
                 "all";
-            
+
             var cacheKey = $"route_{routeId}_schedules_{timeKey}";
-            
+
             // Check if we need to refresh from the API
             if (!forceRefresh)
             {
@@ -632,74 +666,71 @@ namespace TransportTracker.Core.Services.Api
                 var cachedSchedules = await _scheduleCache.GetAsync(cacheKey);
                 if (cachedSchedules != null)
                 {
-                    _logger.LogDebug("Retrieved {Count} schedules for route {RouteId} from cache", 
-                        cachedSchedules.Count, routeId);
+                    _logger.LogDebug(SchedulesCacheHitEventId, "Retrieved {Count} schedules for route {RouteId} from cache", cachedSchedules.Count, routeId);
                     return cachedSchedules;
                 }
             }
-            
+
             // Create a response handler for this request
             var responseHandler = new ApiResponseHandler(_logger, _apiUsageStatistics);
-            
+
             try
             {
                 // Ensure we're authenticated
                 if (!await EnsureAuthenticatedAsync(cancellationToken))
                 {
-                    _logger.LogWarning("Failed to retrieve schedules for route {RouteId}: Not authenticated", routeId);
+                    _logger.LogWarning(SchedulesApiErrorEventId, "Failed to retrieve schedules for route {RouteId}: Not authenticated", routeId);
                     return Array.Empty<Schedule>();
                 }
-                
+
                 // Build query string for time filters
                 var query = new List<string>();
                 if (startTime.HasValue)
                     query.Add($"start_time={startTime.Value:yyyy-MM-ddTHH:mm:ss}");
                 if (endTime.HasValue)
                     query.Add($"end_time={endTime.Value:yyyy-MM-ddTHH:mm:ss}");
-                
+
                 var queryString = query.Count > 0 ? "?" + string.Join("&", query) : "";
-                
+
                 // Make the API call with resilience handling
                 var schedules = await responseHandler.ProcessWithRetriesAsync<List<Schedule>>(
                     async token => await _httpClient.GetAsync($"routes/{routeId}/schedules{queryString}", token),
                     _maxRetryAttempts,
                     200,
                     cancellationToken);
-                
+
                 if (schedules != null && schedules.Count > 0)
                 {
                     // Cache the results with schedule-specific expiration
-                    await _scheduleCache.SetAsync(cacheKey, schedules, _scheduleCacheExpiration);
-                    _logger.LogInformation("Retrieved and cached {Count} schedules for route {RouteId} from API", 
-                        schedules.Count, routeId);
+                    await _scheduleCache.SetAsync(cacheKey, schedules, new CacheEntryOptions { AbsoluteExpiration = DateTimeOffset.UtcNow.Add(_scheduleCacheExpiration) });
+                    _logger.LogInformation(SchedulesApiFetchedEventId, "Retrieved and cached {Count} schedules for route {RouteId} from API", schedules.Count, routeId);
                 }
                 else
                 {
-                    _logger.LogWarning("API returned no schedules for route {RouteId}", routeId);
+                    _logger.LogWarning(SchedulesApiEmptyEventId, "API returned no schedules for route {RouteId}", routeId);
                 }
-                
-                return schedules ?? Array.Empty<Schedule>();
+
+                return schedules ?? Enumerable.Empty<Schedule>();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve schedules for route {RouteId} from API", routeId);
-                
+                _logger.LogError(SchedulesApiErrorEventId, ex, "Failed to retrieve schedules for route {RouteId} from API", routeId);
+
                 // Try to fall back to cache even if forceRefresh was true
                 if (forceRefresh)
                 {
                     var cachedSchedules = await _scheduleCache.GetAsync(cacheKey);
                     if (cachedSchedules != null)
                     {
-                        _logger.LogInformation("Falling back to cached schedules for route {RouteId} after API failure", 
-                            routeId);
+                        _logger.LogInformation("Falling back to cached schedules for route {RouteId} after API failure", routeId);
                         return cachedSchedules;
                     }
                 }
-                
+
                 throw;
             }
         }
-        
+
         /// <summary>
         /// Gets schedules for a stop
         /// </summary>
@@ -711,15 +742,15 @@ namespace TransportTracker.Core.Services.Api
             {
                 throw new ArgumentNullException(nameof(stopId));
             }
-            
+
             // Build cache key based on parameters
             var routeKey = !string.IsNullOrEmpty(routeId) ? routeId : "all";
             var timeKey = startTime.HasValue || endTime.HasValue ?
                 $"{startTime?.ToString("yyyyMMddHHmm") ?? "start"}_to_{endTime?.ToString("yyyyMMddHHmm") ?? "end"}" :
                 "all";
-            
+
             var cacheKey = $"stop_{stopId}_route_{routeKey}_schedules_{timeKey}";
-            
+
             // Check if we need to refresh from the API
             if (!forceRefresh)
             {
@@ -727,24 +758,23 @@ namespace TransportTracker.Core.Services.Api
                 var cachedSchedules = await _scheduleCache.GetAsync(cacheKey);
                 if (cachedSchedules != null)
                 {
-                    _logger.LogDebug("Retrieved {Count} schedules for stop {StopId} from cache", 
-                        cachedSchedules.Count, stopId);
+                    _logger.LogDebug(SchedulesCacheHitEventId, "Retrieved {Count} schedules for stop {StopId} from cache", cachedSchedules.Count, stopId);
                     return cachedSchedules;
                 }
             }
-            
+
             // Create a response handler for this request
             var responseHandler = new ApiResponseHandler(_logger, _apiUsageStatistics);
-            
+
             try
             {
                 // Ensure we're authenticated
                 if (!await EnsureAuthenticatedAsync(cancellationToken))
                 {
-                    _logger.LogWarning("Failed to retrieve schedules for stop {StopId}: Not authenticated", stopId);
+                    _logger.LogWarning(SchedulesApiErrorEventId, "Failed to retrieve schedules for stop {StopId}: Not authenticated", stopId);
                     return Array.Empty<Schedule>();
                 }
-                
+
                 // Build query string for filters
                 var query = new List<string>();
                 if (!string.IsNullOrEmpty(routeId))
@@ -753,34 +783,33 @@ namespace TransportTracker.Core.Services.Api
                     query.Add($"start_time={startTime.Value:yyyy-MM-ddTHH:mm:ss}");
                 if (endTime.HasValue)
                     query.Add($"end_time={endTime.Value:yyyy-MM-ddTHH:mm:ss}");
-                
+
                 var queryString = query.Count > 0 ? "?" + string.Join("&", query) : "";
-                
+
                 // Make the API call with resilience handling
                 var schedules = await responseHandler.ProcessWithRetriesAsync<List<Schedule>>(
                     async token => await _httpClient.GetAsync($"stops/{stopId}/schedules{queryString}", token),
                     _maxRetryAttempts,
                     200,
                     cancellationToken);
-                
+
                 if (schedules != null && schedules.Count > 0)
                 {
                     // Cache the results with schedule-specific expiration
-                    await _scheduleCache.SetAsync(cacheKey, schedules, _scheduleCacheExpiration);
-                    _logger.LogInformation("Retrieved and cached {Count} schedules for stop {StopId} from API", 
-                        schedules.Count, stopId);
+                    await _scheduleCache.SetAsync(cacheKey, schedules, new CacheEntryOptions { AbsoluteExpiration = DateTimeOffset.UtcNow.Add(_scheduleCacheExpiration) });
+                    _logger.LogInformation(SchedulesApiFetchedEventId, "Retrieved and cached {Count} schedules for stop {StopId} from API", schedules.Count, stopId);
                 }
                 else
                 {
-                    _logger.LogWarning("API returned no schedules for stop {StopId}", stopId);
+                    _logger.LogWarning(SchedulesApiEmptyEventId, "API returned no schedules for stop {StopId}", stopId);
                 }
-                
-                return schedules ?? Array.Empty<Schedule>();
+
+                return schedules ?? Enumerable.Empty<Schedule>();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve schedules for stop {StopId} from API", stopId);
-                
+                _logger.LogError(SchedulesApiErrorEventId, ex, "Failed to retrieve schedules for stop {StopId} from API", stopId);
+
                 // Try to fall back to cache even if forceRefresh was true
                 if (forceRefresh)
                 {

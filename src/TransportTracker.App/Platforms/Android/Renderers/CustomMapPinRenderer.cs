@@ -9,6 +9,8 @@ using Microsoft.Maui.Platform;
 using TransportTracker.App.Views.Maps;
 using Color = Microsoft.Maui.Graphics.Color;
 
+using TransportTracker.Core.Maps;
+
 namespace TransportTracker.App.Platforms.Android.Renderers
 {
     public class CustomMapPinRenderer : MapHandler

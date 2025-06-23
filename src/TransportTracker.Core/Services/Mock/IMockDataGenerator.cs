@@ -99,6 +99,26 @@ namespace TransportTracker.Core.Services.Mock
         /// Gets or sets the average number of vehicles per route
         /// </summary>
         public int AverageVehiclesPerRoute { get; set; } = 5;
+
+        /// <summary>
+        /// Gets or sets the simulation speed factor (1.0 = real time)
+        /// </summary>
+        public double SimulationSpeedFactor { get; set; } = 1.0;
+
+        /// <summary>
+        /// Gets or sets the schedule start time hour (e.g., 5 for 5:00 AM)
+        /// </summary>
+        public int ScheduleStartTimeHour { get; set; } = 5;
+
+        /// <summary>
+        /// Gets or sets the schedule end time hour (e.g., 23 for 11:00 PM)
+        /// </summary>
+        public int ScheduleEndTimeHour { get; set; } = 23;
+
+        /// <summary>
+        /// Gets or sets the average trip frequency in minutes
+        /// </summary>
+        public int AverageTripFrequencyMinutes { get; set; } = 15;
         
         /// <summary>
         /// Gets or sets the update interval in milliseconds

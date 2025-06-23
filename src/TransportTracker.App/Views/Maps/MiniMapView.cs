@@ -1,6 +1,7 @@
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
-using Microsoft.Maui.Controls.Maps;
+using MauiMap = Microsoft.Maui.Controls.Maps.Map;
+using TransportTracker.App.Views.Maps;
 using Microsoft.Maui.Maps;
 using System;
 using System.Collections.Generic;
@@ -11,14 +12,14 @@ namespace TransportTracker.App.Views.Maps
     /// <summary>
     /// A compact map view for displaying a single vehicle
     /// </summary>
-    public class MiniMapView : Map
+    public class MiniMapView : MauiMap
     {
         /// <summary>
         /// Bindable property for the Vehicle
         /// </summary>
         public static readonly BindableProperty VehicleProperty = BindableProperty.Create(
             nameof(Vehicle),
-            typeof(TransportVehicle),
+            typeof(TransportTracker.App.Views.Maps.TransportVehicle),
             typeof(MiniMapView),
             null,
             propertyChanged: OnVehicleChanged);
@@ -45,9 +46,9 @@ namespace TransportTracker.App.Views.Maps
         /// <summary>
         /// Gets or sets the vehicle to display on the map
         /// </summary>
-        public TransportVehicle Vehicle
+        public TransportTracker.App.Views.Maps.TransportVehicle Vehicle
         {
-            get => (TransportVehicle)GetValue(VehicleProperty);
+            get => (TransportTracker.App.Views.Maps.TransportVehicle)GetValue(VehicleProperty);
             set => SetValue(VehicleProperty, value);
         }
         
@@ -98,7 +99,7 @@ namespace TransportTracker.App.Views.Maps
         private static void OnVehicleChanged(BindableObject bindable, object oldValue, object newValue)
         {
             var mapView = (MiniMapView)bindable;
-            mapView.UpdateMap();
+            mapView.UpdateMauiMap();
         }
         
         /// <summary>
@@ -118,7 +119,7 @@ namespace TransportTracker.App.Views.Maps
         /// <summary>
         /// Updates the map with the current vehicle
         /// </summary>
-        private void UpdateMap()
+        private void UpdateMauiMap()
         {
             // Clear existing pins
             Pins.Clear();

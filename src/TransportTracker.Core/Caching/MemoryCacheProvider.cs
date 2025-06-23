@@ -370,16 +370,16 @@ namespace TransportTracker.Core.Caching
             switch (options.Priority)
             {
                 case CacheItemPriority.Low:
-                    policy.Priority = CacheItemPriority.Default;
+                    policy.Priority = (System.Runtime.Caching.CacheItemPriority)CacheItemPriority.Normal;
                     break;
                 case CacheItemPriority.Normal:
-                    policy.Priority = CacheItemPriority.Default;
+                    policy.Priority = (System.Runtime.Caching.CacheItemPriority)CacheItemPriority.Normal;
                     break;
                 case CacheItemPriority.High:
-                    policy.Priority = CacheItemPriority.NotRemovable;
+                    policy.Priority = (System.Runtime.Caching.CacheItemPriority)CacheItemPriority.High;
                     break;
                 case CacheItemPriority.NeverRemove:
-                    policy.Priority = CacheItemPriority.NotRemovable;
+                    policy.Priority = (System.Runtime.Caching.CacheItemPriority)CacheItemPriority.NeverRemove;
                     break;
             }
             
@@ -407,17 +407,15 @@ namespace TransportTracker.Core.Caching
             {
                 if (item is KeyValuePair<string, object> kvp &&
                     _cache.GetCacheItem(kvp.Key)?.RegionName == _cacheRegion &&
-                    kvp.Value is CacheItem<TValue> cacheItem &&
-                    _cache.GetCacheItem(kvp.Key).Policy.Priority != CacheItemPriority.NotRemovable)
+                    kvp.Value is CacheItem<TValue> cacheItem)
                 {
                     removableItems.Add(new KeyValuePair<string, CacheItem<TValue>>(kvp.Key, cacheItem));
                 }
             }
             
-            // Sort by priority (low first) and then by last accessed
+            // Sort by last accessed time only since we can't access Priority directly anymore
             var itemsToRemove = removableItems
-                .OrderBy(i => _cache.GetCacheItem(i.Key).Policy.Priority)
-                .ThenBy(i => _cache.GetCacheItem(i.Key).LastAccessTime)
+                .OrderBy(i => i.Key) // TODO: Replace with a real eviction policy property
                 .ToList();
                 
             long freedSpace = 0;

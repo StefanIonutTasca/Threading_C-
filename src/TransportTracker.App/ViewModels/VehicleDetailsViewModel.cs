@@ -7,6 +7,8 @@ using TransportTracker.App.Core.MVVM;
 using TransportTracker.App.Services;
 using TransportTracker.App.Views.Maps;
 
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace TransportTracker.App.ViewModels
 {
     /// <summary>

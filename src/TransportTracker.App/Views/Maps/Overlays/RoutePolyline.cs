@@ -5,11 +5,18 @@ using Microsoft.Maui.Graphics;
 
 namespace TransportTracker.App.Views.Maps.Overlays
 {
+    
+
     /// <summary>
     /// Represents a polyline overlay for displaying transport route paths on a map
     /// </summary>
     public class RoutePolyline : MapElement
     {
+        /// <summary>
+        /// Gets or sets whether the polyline is visible on the map.
+        /// </summary>
+        public bool IsVisible { get; set; }
+
         /// <summary>
         /// Gets or sets the ID of the route associated with this polyline
         /// </summary>

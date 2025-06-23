@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using TransportTracker.Core.Models;
 
 namespace TransportTracker.Core.Services.Api.Transport.Models
 {
@@ -185,7 +186,7 @@ namespace TransportTracker.Core.Services.Api.Transport.Models
                 Name = string.IsNullOrEmpty(RouteLongName) ? RouteShortName : RouteLongName,
                 ShortName = RouteShortName,
                 Description = TripHeadsign,
-                TransportType = transportType,
+                TransportType = transportType.ToVehicleType(),
                 Color = RouteColor
             };
         }

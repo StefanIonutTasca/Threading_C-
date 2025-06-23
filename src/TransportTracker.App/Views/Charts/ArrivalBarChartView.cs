@@ -197,5 +197,12 @@ namespace TransportTracker.App.Views.Charts
             canvas.FontSize = 14;
             canvas.DrawString("Arrival Time", chartLeft + (chartWidth / 2), chartBottom + 40, HorizontalAlignment.Center);
         }
+        /// <summary>
+        /// Invalidates the chart surface and triggers a redraw.
+        /// </summary>
+        public void InvalidateSurface()
+        {
+            base.InvalidateSurface();
+        }
     }
 }

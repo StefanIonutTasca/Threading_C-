@@ -6,7 +6,7 @@ namespace TransportTracker.App.Views.Vehicles
     /// <summary>
     /// View for displaying and interacting with a list of transport vehicles.
     /// </summary>
-    public partial class VehiclesView : BaseContentPage<VehiclesViewModel>
+    public partial class VehiclesView : ContentPage
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="VehiclesView"/> class.

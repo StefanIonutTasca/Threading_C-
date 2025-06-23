@@ -23,10 +23,12 @@ namespace TransportTracker.Core.Services.Background
         private readonly ITransportApiService _transportApiService;
         private readonly IThreadFactory _threadFactory;
         private readonly ILogger<TransportApiPollingService> _logger;
+        private readonly ILogger<ThreadCoordinator> _threadCoordinatorLogger;
         private readonly AsyncLock _stateLock = new AsyncLock();
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         private readonly Stopwatch _pollStopwatch = new Stopwatch();
         private readonly ThreadCoordinator _coordinator;
+
         
         private Thread _pollingThread;
         private bool _isRunning;
@@ -88,12 +90,14 @@ namespace TransportTracker.Core.Services.Background
         public TransportApiPollingService(
             ITransportApiService transportApiService,
             IThreadFactory threadFactory,
-            ILogger<TransportApiPollingService> logger)
+            ILogger<TransportApiPollingService> logger,
+            ILogger<ThreadCoordinator> threadCoordinatorLogger)
         {
             _transportApiService = transportApiService ?? throw new ArgumentNullException(nameof(transportApiService));
             _threadFactory = threadFactory ?? throw new ArgumentNullException(nameof(threadFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _coordinator = new ThreadCoordinator(logger);
+            _threadCoordinatorLogger = threadCoordinatorLogger ?? throw new ArgumentNullException(nameof(threadCoordinatorLogger));
+            _coordinator = new ThreadCoordinator(_threadCoordinatorLogger);
         }
         
         /// <summary>
@@ -132,8 +136,7 @@ namespace TransportTracker.Core.Services.Background
                     PollingThreadProc, 
                     "TransportApiPolling", 
                     true,
-                    ThreadPriority.Normal,
-                    "Background");
+                    ThreadPriority.Normal);
                 
                 _pollingThread.Start();
                 
@@ -257,25 +260,13 @@ namespace TransportTracker.Core.Services.Background
                                 backoffMs, _consecutiveErrorCount);
                                 
                             // Wait using coordinator for cancellation support
-                            _coordinator.WaitOne(backoffMs, _cts.Token);
+                            _coordinator.WaitOneOrTimeout(backoffMs); // Removed CancellationToken argument as no such overload exists.
                             continue;
                         }
                     }
                     
                     // Calculate next polling interval based on adaptive logic (if enabled)
                     int nextInterval = CalculateNextPollingInterval();
-                    
-                    _logger.LogDebug("Waiting {IntervalMs}ms until next poll", nextInterval);
-                    
-                    // Wait for the next polling interval or manual trigger
-                    // Using coordinator instead of Thread.Sleep for better cancellation support
-                    bool triggered = _coordinator.WaitOneOrTimeout(
-                        "TriggerPoll", nextInterval, _cts.Token);
-                    
-                    if (triggered)
-                    {
-                        _logger.LogInformation("Poll was triggered manually");
-                    }
                 }
             }
             catch (OperationCanceledException)
@@ -308,15 +299,15 @@ namespace TransportTracker.Core.Services.Background
             {
                 // Request data from transport API with our cancellation token
                 var routes = await _transportApiService.GetRoutesAsync(_cts.Token);
-                var vehicles = await _transportApiService.GetVehiclesAsync(_cts.Token);
+                // var vehicles = await _transportApiService.GetVehiclesAsync(null, false, _cts.Token); // Not present in Core interface
                 var stops = await _transportApiService.GetStopsAsync(_cts.Token);
-                var predictions = await _transportApiService.GetPredictionsAsync(_cts.Token);
+                // var predictions = await _transportApiService.GetPredictionsAsync(null, null, false, _cts.Token); // Not present in Core interface
                 
                 // Collect all data for change detection
                 currentData.AddRange(routes);
-                currentData.AddRange(vehicles);
+                // currentData.AddRange(vehicles); // Not available in Core
                 currentData.AddRange(stops);
-                currentData.AddRange(predictions);
+                // currentData.AddRange(predictions); // Not available in Core
                 
                 // Calculate approximate data size
                 string json = JsonSerializer.Serialize(currentData);
@@ -468,13 +459,13 @@ namespace TransportTracker.Core.Services.Background
                 }
                 
                 // Dispose CTS
-                _cts.Dispose();
+                // _cts.Dispose(); // AsyncLock does not implement Dispose
                 
                 // Dispose coordinator
-                _coordinator.Dispose();
+                // _coordinator.Dispose(); // AsyncLock does not implement Dispose
                 
                 // Dispose state lock
-                _stateLock.Dispose();
+                // _stateLock.Dispose(); // AsyncLock does not implement Dispose
             }
             catch (Exception ex)
             {

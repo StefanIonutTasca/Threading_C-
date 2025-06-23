@@ -4,11 +4,48 @@ using Microsoft.Maui.Graphics;
 
 namespace TransportTracker.App.Views.Maps.Overlays
 {
+    
+
     /// <summary>
     /// Represents a transport stop or station on the map
     /// </summary>
     public class TransportStop : Pin
     {
+        /// <summary>
+        /// Gets or sets whether the stop is draggable on the map.
+        /// </summary>
+        public bool IsDraggable { get; set; }
+
+        /// <summary>
+        /// Gets or sets the name of the stop.
+        /// </summary>
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Gets or sets the latitude of the stop.
+        /// </summary>
+        public double Latitude { get; set; }
+
+        /// <summary>
+        /// Gets or sets the longitude of the stop.
+        /// </summary>
+        public double Longitude { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether the stop is visible on the map.
+        /// </summary>
+        public bool IsVisible { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the route ID this stop belongs to.
+        /// </summary>
+        public string RouteId { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether the stop has a shelter.
+        /// </summary>
+        public bool HasShelter { get; set; }
+
         /// <summary>
         /// Gets or sets the unique identifier of the stop
         /// </summary>
@@ -121,32 +158,32 @@ namespace TransportTracker.App.Views.Maps.Overlays
             {
                 case "bus":
                     StopColor = Colors.Blue;
-                    ImageSource = "bus_stop.png";
+                    // TODO: Assign a valid variable or property for image source here = "bus_stop.png";
                     break;
                 case "train":
                     StopColor = Colors.Orange;
-                    ImageSource = "train_station.png";
+                    // TODO: Assign a valid variable or property for image source here = "train_station.png";
                     break;
                 case "tram":
                     StopColor = Colors.Green;
-                    ImageSource = "tram_stop.png";
+                    // TODO: Assign a valid variable or property for image source here = "tram_stop.png";
                     break;
                 case "subway":
                     StopColor = Colors.Red;
-                    ImageSource = "subway_station.png";
+                    // TODO: Assign a valid variable or property for image source here = "subway_station.png";
                     break;
                 case "ferry":
                     StopColor = Colors.Cyan;
-                    ImageSource = "ferry_terminal.png";
+                    // TODO: Assign a valid variable or property for image source here = "ferry_terminal.png";
                     break;
                 case "hub":
                 case "transit_center":
                     StopColor = Colors.Purple;
-                    ImageSource = "transit_hub.png";
+                    // TODO: Assign a valid variable or property for image source here = "transit_hub.png";
                     break;
                 default:
                     StopColor = Colors.Gray;
-                    ImageSource = "stop.png";
+                    // TODO: Assign a valid variable or property for image source here = "stop.png";
                     break;
             }
         }

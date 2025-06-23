@@ -84,10 +84,10 @@ namespace TransportTracker.Core.Parallel.Processing
                 // Process the batch on a background thread
                 await Task.Run(() => 
                 {
-                    Parallel.ForEach(batch, item => 
+                    foreach (var item in batch)
                     {
                         action(item);
-                    });
+                    }
                 }, cancellationToken);
                 
                 // Update progress

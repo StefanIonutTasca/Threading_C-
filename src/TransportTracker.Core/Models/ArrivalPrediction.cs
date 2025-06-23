@@ -86,6 +86,11 @@ namespace TransportTracker.Core.Models
         public int StopsAway { get; set; }
         
         /// <summary>
+        /// Destination of the trip
+        /// </summary>
+        public string Destination { get; set; }
+        
+        /// <summary>
         /// Calculates whether the vehicle is on time, early, or late
         /// </summary>
         /// <returns>The status of the arrival</returns>
@@ -122,6 +127,31 @@ namespace TransportTracker.Core.Models
             }
             
             return $"{minutes} min {seconds} sec {(DelaySeconds >= 0 ? "late" : "early")}";
+        }
+
+        /// <summary>
+        /// Creates a deep copy of the arrival prediction object
+        /// </summary>
+        /// <returns>A new ArrivalPrediction instance with the same values</returns>
+        public ArrivalPrediction Clone()
+        {
+            return new ArrivalPrediction
+            {
+                Id = this.Id,
+                StopId = this.StopId,
+                RouteId = this.RouteId,
+                VehicleId = this.VehicleId,
+                PredictedArrivalTime = this.PredictedArrivalTime,
+                ScheduledArrivalTime = this.ScheduledArrivalTime,
+                DelaySeconds = this.DelaySeconds,
+                Status = this.Status,
+                ConfidenceLevel = this.ConfidenceLevel,
+                PredictionTime = this.PredictionTime,
+                DistanceFromStop = this.DistanceFromStop,
+                StopsAway = this.StopsAway,
+                Destination = this.Destination
+                // Navigation properties are not cloned to avoid circular references
+            };
         }
     }
     

@@ -23,13 +23,15 @@ namespace TransportTracker.Core.Parallel
         private readonly BatchProcessor<Route, Route> _routeBatchProcessor;
         private readonly BatchProcessor<Schedule, Schedule> _scheduleBatchProcessor;
         private readonly IProgressReporter _progressReporter;
+        private readonly ILoggerFactory _loggerFactory;
         
         /// <summary>
         /// Creates a new instance of ParallelDataProcessor
         /// </summary>
-        public ParallelDataProcessor(ILogger<ParallelDataProcessor> logger)
+        public ParallelDataProcessor(ILogger<ParallelDataProcessor> logger, ILoggerFactory loggerFactory)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
             
             // Create progress reporter
             _progressReporter = new ProgressReporter(logger, "Parallel Processing");
@@ -42,9 +44,9 @@ namespace TransportTracker.Core.Parallel
                 UseCustomPartitioner = true
             };
             
-            // Initialize components
-            _queryProvider = new ParallelQueryProvider(logger, defaultOptions);
-            _customPartitioner = new CustomPartitioner(logger);
+            // Initialize components with correct logger types
+            _queryProvider = new ParallelQueryProvider(_loggerFactory.CreateLogger<ParallelQueryProvider>(), defaultOptions);
+            _customPartitioner = new CustomPartitioner(_loggerFactory.CreateLogger<CustomPartitioner>());
             _vehicleBatchProcessor = new BatchProcessor<Vehicle, Vehicle>(logger, _progressReporter, defaultOptions);
             _routeBatchProcessor = new BatchProcessor<Route, Route>(logger, _progressReporter, defaultOptions);
             _scheduleBatchProcessor = new BatchProcessor<Schedule, Schedule>(logger, _progressReporter, defaultOptions);
@@ -209,11 +211,10 @@ namespace TransportTracker.Core.Parallel
             
             // Use PLINQ to calculate average delays
             return parallelQuery
-                .Where(s => s.DelayMinutes.HasValue)
                 .GroupBy(s => s.RouteId)
                 .ToDictionary(
                     g => g.Key,
-                    g => g.Average(s => s.DelayMinutes.Value)
+                    g => g.Average(s => s.DelayMinutes)
                 );
         }
         

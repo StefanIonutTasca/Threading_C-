@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 
 namespace TransportTracker.Core.Models
 {
@@ -83,6 +84,32 @@ namespace TransportTracker.Core.Models
         /// Whether the vehicle has WiFi available
         /// </summary>
         public bool HasWifi { get; set; }
+
+        /// <summary>
+        /// Creates a deep copy of the vehicle object
+        /// </summary>
+        /// <returns>A new Vehicle instance with the same values</returns>
+        public Vehicle Clone()
+        {
+            return new Vehicle
+            {
+                Id = this.Id,
+                RegistrationNumber = this.RegistrationNumber,
+                Type = this.Type,
+                Status = this.Status,
+                Latitude = this.Latitude,
+                Longitude = this.Longitude,
+                Bearing = this.Bearing,
+                Speed = this.Speed,
+                LastUpdated = this.LastUpdated,
+                RouteId = this.RouteId,
+                Capacity = this.Capacity,
+                OccupancyPercentage = this.OccupancyPercentage,
+                IsAccessible = this.IsAccessible,
+                HasWifi = this.HasWifi
+                // Route navigation property is not cloned to avoid circular references
+            };
+        }
     }
 
     /// <summary>
@@ -108,6 +135,7 @@ namespace TransportTracker.Core.Models
         OutOfService,
         Delayed,
         Stopped,
-        NotTracked
+        NotTracked,
+        InTransit
     }
 }

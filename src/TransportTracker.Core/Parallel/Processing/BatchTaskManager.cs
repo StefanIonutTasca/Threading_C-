@@ -150,7 +150,7 @@ namespace TransportTracker.Core.Parallel.Processing
                             $"Completed batch task '{taskName}' ({taskId}) in {stopwatch.ElapsedMilliseconds}ms. " +
                             $"Processed {processedItems} items with {batches.Count} batches");
                         
-                        return results.ToList();
+                        return Task.FromResult((object)results.ToList());
                     }
                     catch (OperationCanceledException)
                     {
@@ -299,8 +299,8 @@ namespace TransportTracker.Core.Parallel.Processing
         private class BatchProcessingTask
         {
             private readonly CancellationTokenSource _cts = new();
-            private readonly Task<object> _task;
-            private readonly Func<CancellationTokenSource, Task<object>> _taskFactory;
+            private readonly Task<Task<object>> _task;
+            private readonly Func<CancellationTokenSource, Task<Task<object>>> _taskFactory;
             
             public Guid Id { get; }
             public string Name { get; }
@@ -318,14 +318,14 @@ namespace TransportTracker.Core.Parallel.Processing
             public BatchProcessingTask(
                 Guid id, 
                 string name,
-                Func<CancellationTokenSource, Task<object>> taskFactory)
+                Func<CancellationTokenSource, Task<Task<object>>> taskFactory)
             {
                 Id = id;
                 Name = name;
                 _taskFactory = taskFactory;
                 
                 // Create task but don't start it yet
-                _task = new Task<object>(async () =>
+                _task = new Task<Task<object>>(async () =>
                 {
                     Status = BatchTaskState.Running;
                     StartTime = DateTime.Now;

@@ -67,7 +67,7 @@ namespace TransportTracker.Core.Parallel.Query
             
             // Add execution plan metrics logging for development
             #if DEBUG
-            LogExecutionPlan(typeof(T), source.Count(), options);
+            LogExecutionPlan<T>(typeof(T), source.Count(), options);
             #endif
             
             return parallelQuery;

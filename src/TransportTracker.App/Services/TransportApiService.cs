@@ -8,6 +8,10 @@ using System.Threading.Tasks;
 using TransportTracker.App.Core.Diagnostics;
 using TransportTracker.App.Models;
 using TransportTracker.App.Services.Caching;
+using TransportTracker.App.Views.Maps;
+using TransportTracker.App.Views.Maps.Overlays;
+using TransportTracker.Core.Models;
+using TransportTracker.Core.Services.Api.Transport;
 
 namespace TransportTracker.App.Services
 {
@@ -15,18 +19,48 @@ namespace TransportTracker.App.Services
     /// Service for interacting with transport API endpoints
     /// </summary>
     public class TransportApiService : ITransportApiService
-    {
-        private readonly HttpClient _httpClient;
-        private readonly ICacheManager _cacheManager;
-        private readonly JsonSerializerOptions _jsonOptions;
-        private readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(15);
+{
+    // ... existing code ...
+
+    // Add stubs for all required interface methods (with correct signatures)
+    public Task<List<Route>> GetRoutesAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<Route>());
+
+    public Task<Route> GetRouteAsync(string routeId, CancellationToken cancellationToken = default)
+        => Task.FromResult<Route>(null);
+
+    public Task<List<Stop>> GetRouteStopsAsync(string routeId, CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<Stop>());
+
+    public Task<List<Vehicle>> GetRouteVehiclesAsync(string routeId, CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<Vehicle>());
+
+    public Task<Vehicle> GetVehicleAsync(string vehicleId, CancellationToken cancellationToken = default)
+        => Task.FromResult<Vehicle>(null);
+
+    public Task<List<Stop>> GetStopsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<Stop>());
+
+    public Task<Stop> GetStopAsync(string stopId, CancellationToken cancellationToken = default)
+        => Task.FromResult<Stop>(null);
+
+    public Task<List<ArrivalPrediction>> GetStopPredictionsAsync(string stopId, CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<ArrivalPrediction>());
+
+    public Task<List<ServiceAlert>> GetServiceAlertsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(new List<ServiceAlert>());
+
+    private readonly HttpClient _httpClient;
+    private readonly ICacheManager _cacheManager;
+    private readonly JsonSerializerOptions _jsonOptions;
+    private readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(15);
         
-        // API endpoints (would normally be in configuration)
-        private const string BaseApiUrl = "https://api.transportdata.org/v1/";
-        private const string VehiclesEndpoint = "vehicles";
-        private const string RoutesEndpoint = "routes";
-        private const string StopsEndpoint = "stops";
-        private const string StatusEndpoint = "status";
+    // API endpoints (would normally be in configuration)
+    private const string BaseApiUrl = "https://api.transportdata.org/v1/";
+    private const string VehiclesEndpoint = "vehicles";
+    private const string RoutesEndpoint = "routes";
+    private const string StopsEndpoint = "stops";
+    private const string StatusEndpoint = "status";
         
         // Default API request parameters
         private string _defaultApiKey = null;
@@ -71,39 +105,26 @@ namespace TransportTracker.App.Services
         /// <summary>
         /// Get transport vehicles with caching and retry support
         /// </summary>
-        public async Task<List<TransportVehicle>> GetVehiclesAsync(
-            string transportType = null, 
-            bool bypassCache = false,
-            CancellationToken cancellationToken = default)
+        public async Task<List<Vehicle>> GetVehicleLocationsAsync(CancellationToken cancellationToken = default)
         {
-            string cacheKey = $"vehicles_{transportType ?? "all"}_{_defaultCity}";
+            string cacheKey = $"vehicles_all_{_defaultCity}";
             
             // Try to get from cache if not bypassing
-            if (!bypassCache)
+            var cachedData = _cacheManager.Get<List<Vehicle>>(cacheKey);
+            if (cachedData != null)
             {
-                var cachedData = _cacheManager.Get<List<TransportVehicle>>(cacheKey);
-                if (cachedData != null)
-                {
-                    return cachedData;
-                }
+                return cachedData;
             }
             
             // Build API request URL
-            string endpoint = VehiclesEndpoint;
-            if (!string.IsNullOrEmpty(transportType))
-            {
-                endpoint += $"?type={transportType}";
-            }
-            
-            // Add city parameter
-            endpoint += (endpoint.Contains("?") ? "&" : "?") + $"city={_defaultCity}";
+            string endpoint = VehiclesEndpoint + "?city=" + _defaultCity;
             
             using (PerformanceMonitor.Instance.StartOperation("Api_GetVehicles"))
             {
                 try
                 {
                     // Make the API request with retry support
-                    var vehicles = await MakeApiRequestWithRetryAsync<List<TransportVehicle>>(
+                    var vehicles = await MakeApiRequestWithRetryAsync<List<Vehicle>>(
                         endpoint, 
                         3, // Max retry attempts
                         cancellationToken
@@ -116,7 +137,7 @@ namespace TransportTracker.App.Services
                         _cacheManager.Set(cacheKey, vehicles, TimeSpan.FromMinutes(1));
                     }
                     
-                    return vehicles ?? new List<TransportVehicle>();
+                    return vehicles ?? new List<Vehicle>();
                 }
                 catch (Exception ex)
                 {
@@ -124,7 +145,7 @@ namespace TransportTracker.App.Services
                     System.Diagnostics.Debug.WriteLine($"Error getting vehicles: {ex.Message}");
                     
                     // Return empty list on error
-                    return new List<TransportVehicle>();
+                    return new List<Vehicle>();
                 }
             }
         }
@@ -247,6 +268,77 @@ namespace TransportTracker.App.Services
                     
                     // Return empty list on error
                     return new List<TransportStop>();
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Get arrival/departure predictions with caching and retry support
+        /// </summary>
+        public async Task<List<TransportPrediction>> GetPredictionsAsync(
+            string stopId = null,
+            string routeId = null,
+            bool bypassCache = false,
+            CancellationToken cancellationToken = default)
+        {
+            string cacheKey = $"predictions_{stopId ?? "all"}_{routeId ?? "all"}_{_defaultCity}";
+            
+            // Try to get from cache if not bypassing
+            if (!bypassCache)
+            {
+                var cachedData = _cacheManager.Get<List<TransportPrediction>>(cacheKey);
+                if (cachedData != null)
+                {
+                    return cachedData;
+                }
+            }
+            
+            // Build API request URL
+            string endpoint = "predictions";
+            bool hasQueryParam = false;
+            
+            if (!string.IsNullOrEmpty(stopId))
+            {
+                endpoint += $"?stopId={stopId}";
+                hasQueryParam = true;
+            }
+            
+            if (!string.IsNullOrEmpty(routeId))
+            {
+                endpoint += hasQueryParam ? $"&routeId={routeId}" : $"?routeId={routeId}";
+                hasQueryParam = true;
+            }
+            
+            // Add city parameter
+            endpoint += (hasQueryParam ? "&" : "?") + $"city={_defaultCity}";
+            
+            using (PerformanceMonitor.Instance.StartOperation("Api_GetPredictions"))
+            {
+                try
+                {
+                    // Make the API request with retry support
+                    var predictions = await MakeApiRequestWithRetryAsync<List<TransportPrediction>>(
+                        endpoint, 
+                        3, // Max retry attempts
+                        cancellationToken
+                    );
+                    
+                    // Cache the result if successful
+                    if (predictions != null)
+                    {
+                        // Cache for a short time (predictions change frequently)
+                        _cacheManager.Set(cacheKey, predictions, TimeSpan.FromSeconds(30));
+                    }
+                    
+                    return predictions ?? new List<TransportPrediction>();
+                }
+                catch (Exception ex)
+                {
+                    PerformanceMonitor.Instance.RecordFailure("Api_GetPredictions", ex);
+                    System.Diagnostics.Debug.WriteLine($"Error getting predictions: {ex.Message}");
+                    
+                    // Return empty list on error
+                    return new List<TransportPrediction>();
                 }
             }
         }

@@ -6,7 +6,7 @@ namespace TransportTracker.App.Views.Charts
     /// <summary>
     /// View for data visualization charts.
     /// </summary>
-    public partial class ChartsView : BaseContentPage<ChartsViewModel>
+    public partial class ChartsView : ContentPage
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ChartsView"/> class.

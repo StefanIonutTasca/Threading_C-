@@ -5,11 +5,13 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Maui.Controls;
-using Microsoft.Maui.Controls.Maps;
+using MauiMap = Microsoft.Maui.Controls.Maps.Map;
 using Microsoft.Maui.Controls.Shapes;
 using Microsoft.Maui.Devices.Sensors;
 using Microsoft.Maui.Graphics;
 using TransportTracker.App.Core.Processing;
+
+using TransportTracker.Core.Maps;
 
 namespace TransportTracker.App.Views.Maps.Overlays
 {
@@ -18,7 +20,7 @@ namespace TransportTracker.App.Views.Maps.Overlays
     /// </summary>
     public class HeatmapLayer
     {
-        private readonly Map _map;
+        private readonly MauiMap _map;
         private readonly ObservableCollection<HeatmapPoint> _heatmapPoints = new();
         private readonly Dictionary<HeatmapPoint, MapElement> _mapElements = new();
         private readonly Dictionary<string, List<HeatmapPoint>> _pointsByType = new();
@@ -89,7 +91,7 @@ namespace TransportTracker.App.Views.Maps.Overlays
         /// <summary>
         /// Creates a new heatmap layer attached to the specified map
         /// </summary>
-        public HeatmapLayer(Map map, ColorGradient gradient = null)
+        public HeatmapLayer(MauiMap map, ColorGradient gradient = null)
         {
             _map = map ?? throw new ArgumentNullException(nameof(map));
             _colorGradient = gradient ?? new ColorGradient(

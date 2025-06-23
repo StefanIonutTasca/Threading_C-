@@ -256,19 +256,15 @@ namespace TransportTracker.Core.Collections
                 return;
             }
             
-            var handlers = CollectionChanged;
-            if (handlers != null)
+            // If we're on the UI thread already, just raise the event
+            if (SynchronizationContext.Current == _synchronizationContext)
             {
-                // If we're on the UI thread already, just raise the event
-                if (SynchronizationContext.Current == _synchronizationContext)
-                {
-                    handlers(this, e);
-                }
-                else
-                {
-                    // Marshal to the UI thread
-                    _synchronizationContext.Post(_ => handlers(this, e), null);
-                }
+                base.OnCollectionChanged(e);
+            }
+            else
+            {
+                // Marshal to the UI thread
+                _synchronizationContext.Post(_ => base.OnCollectionChanged(e), null);
             }
         }
         
@@ -283,19 +279,15 @@ namespace TransportTracker.Core.Collections
                 return;
             }
             
-            var handlers = PropertyChanged;
-            if (handlers != null)
+            // If we're on the UI thread already, just raise the event
+            if (SynchronizationContext.Current == _synchronizationContext)
             {
-                // If we're on the UI thread already, just raise the event
-                if (SynchronizationContext.Current == _synchronizationContext)
-                {
-                    handlers(this, e);
-                }
-                else
-                {
-                    // Marshal to the UI thread
-                    _synchronizationContext.Post(_ => handlers(this, e), null);
-                }
+                base.OnPropertyChanged(e);
+            }
+            else
+            {
+                // Marshal to the UI thread
+                _synchronizationContext.Post(_ => base.OnPropertyChanged(e), null);
             }
         }
         

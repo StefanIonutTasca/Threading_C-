@@ -4,23 +4,23 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Microsoft.Maui.Controls.Maps;
 using Microsoft.Maui.Devices.Sensors;
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Windows.Input;
 using TransportTracker.App.Core.Diagnostics;
 using TransportTracker.App.Core.Processing;
 using TransportTracker.App.Core.UI;
 using TransportTracker.App.Models;
 using TransportTracker.App.Views.Maps.Clustering;
 using TransportTracker.App.Views.Maps.Overlays;
+using TransportTracker.Core.Services.Api.Transport;
+using TransportTracker.App.Services.Caching;
+using MauiMap = Microsoft.Maui.Controls.Maps.Map;
+using TransportTracker.App.Views.Maps;
+using TransportTracker.App.Core.MVVM;
+using TransportTracker.Core.Services;
 
 namespace TransportTracker.App.ViewModels
 {
@@ -32,7 +32,7 @@ namespace TransportTracker.App.ViewModels
         private bool _isRefreshing;
         private string _selectedMapType = "Street";
         private Dictionary<string, bool> _transportFilters;
-        private Map _map;
+        private MauiMap _map;
         private VehicleClusterManager _clusterManager;
         private RouteOverlayManager _routeManager;
         private HeatmapManager _heatmapManager;
@@ -135,16 +135,16 @@ namespace TransportTracker.App.ViewModels
             }
         }
 
-        public ICommand RefreshCommand { get; }
-        public ICommand ChangeMapTypeCommand { get; }
-        public ICommand ToggleFilterCommand { get; }
-        public ICommand ZoomToUserLocationCommand { get; }
-        public ICommand ToggleRoutesCommand { get; }
-        public ICommand ToggleClusteringCommand { get; }
-        public ICommand ToggleStopsCommand { get; }
-        public ICommand ToggleHeatmapCommand { get; }
-        public ICommand RouteSelectedCommand { get; }
-        public ICommand CancelProcessingCommand { get; }
+        public ICommand RefreshCommand { get; private set; }
+        public ICommand ChangeMapTypeCommand { get; private set; }
+        public ICommand ToggleFilterCommand { get; private set; }
+        public ICommand ZoomToUserLocationCommand { get; private set; }
+        public ICommand ToggleRoutesCommand { get; private set; }
+        public ICommand ToggleClusteringCommand { get; private set; }
+        public ICommand ToggleStopsCommand { get; private set; }
+        public ICommand ToggleHeatmapCommand { get; private set; }
+        public ICommand RouteSelectedCommand { get; private set; }
+        public ICommand CancelProcessingCommand { get; private set; }
         
         public ObservableRangeCollection<Pin> VehiclePins { get; private set; }
         public ObservableRangeCollection<RouteInfo> Routes { get; private set; }
@@ -215,12 +215,12 @@ namespace TransportTracker.App.ViewModels
             IsInitialized = true;
         }
         
-        public void SetMap(Map map)
+        public void SetMauiMap(MauiMap map)
         {
             _map = map;
             
             // Initialize managers with the map
-            _clusterManager = new VehicleClusterManager(_map);
+            _clusterManager = new VehicleClusterManager(_map, new ObservableCollection<TransportVehicle>(), 50, 2);
             _routeManager = new RouteOverlayManager(_map);
             _heatmapManager = new HeatmapManager(_map)
             {
@@ -278,30 +278,62 @@ namespace TransportTracker.App.ViewModels
                                 // Only bypass cache if this is a manual refresh
                                 bool bypassCache = IsRefreshing;
                                 
-                                // Get vehicles for each active transport type
-                                var vehicleTasks = new List<Task<List<TransportVehicle>>>();
-                                foreach (var type in activeTypes)
+                                // The ITransportApiService interface does not support GetVehiclesAsync by type; get all vehicles for all routes instead.
+                                var routeList = await _apiService.GetRoutesAsync(ct);
+                                var vehicleTasks = new List<Task<List<Vehicle>>>();
+                                foreach (var route in routeList)
                                 {
-                                    vehicleTasks.Add(_apiService.GetVehiclesAsync(type, bypassCache, ct));
+                                    vehicleTasks.Add(_apiService.GetRouteVehiclesAsync(route.Id, ct));
                                 }
-                                
                                 var vehicleResults = await Task.WhenAll(vehicleTasks);
-                                vehicles = vehicleResults.SelectMany(v => v).ToList();
+                                var allVehicles = vehicleResults.SelectMany(v => v).ToList();
+                                // Map Vehicle to TransportVehicle if needed
+                                vehicles = allVehicles.Select(v => new TransportVehicle
+                                {
+                                    Id = v.Id,
+                                    Number = v.Number,
+                                    Type = v.Type,
+                                    Route = v.Route,
+                                    NextStop = v.NextStop,
+                                    Status = v.Status,
+                                    Capacity = v.Capacity,
+                                    Occupancy = v.Occupancy,
+                                    LastUpdated = v.LastUpdated,
+                                    Latitude = v.Latitude,
+                                    Longitude = v.Longitude,
+                                    Speed = v.Speed
+                                }).ToList();
                                 progress.Report(0.3);
                                 
                                 // Load routes
-                                var routeTasks = new List<Task<List<RouteInfo>>>();
-                                foreach (var type in activeTypes)
+                                // Use the correct interface method for getting all routes
+                                routes = (await _apiService.GetRoutesAsync(ct)).Select(r => new RouteInfo
                                 {
-                                    routeTasks.Add(_apiService.GetRoutesAsync(type, bypassCache, ct));
-                                }
-                                
-                                var routeResults = await Task.WhenAll(routeTasks);
-                                routes = routeResults.SelectMany(r => r).ToList();
+                                    Id = r.Id,
+                                    Name = r.Name,
+                                    Code = r.Code,
+                                    Type = r.Type,
+                                    Origin = r.Origin,
+                                    Destination = r.Destination,
+                                    FrequencyMinutes = r.FrequencyMinutes,
+                                    IsActive = r.IsActive,
+                                    IsBidirectional = r.IsBidirectional,
+                                    VehicleCount = r.VehicleCount,
+                                    IsVisible = true
+                                }).ToList();
                                 progress.Report(0.6);
                                 
                                 // Load stops for all routes
-                                stops = await _apiService.GetStopsAsync(null, bypassCache, ct);
+                                stops = (await _apiService.GetStopsAsync(ct)).Select(s => new TransportStop
+                                {
+                                    Id = s.Id,
+                                    Name = s.Name,
+                                    Latitude = s.Latitude,
+                                    Longitude = s.Longitude,
+                                    Routes = s.Routes,
+                                    IsAccessible = s.IsAccessible,
+                                    HasMultipleLevels = s.HasMultipleLevels
+                                }).ToList();
                                 progress.Report(0.9);
                             }
                             catch (Exception ex)
@@ -315,13 +347,7 @@ namespace TransportTracker.App.ViewModels
                                 routes = GenerateMockRoutes().ToList();
                                 stops = GenerateMockStops(routes);
                             }
-                        }, new Progress<double>(p => ProcessingProgress = new BatchProcessingProgress 
-                        { 
-                            PercentComplete = p * 100, 
-                            Status = "Loading transport data from API...",
-                            CurrentBatch = 1,
-                            TotalBatches = 1
-                        }), TimeSpan.FromMilliseconds(50), _processingCts.Token);
+                        }, new Progress<double>(p => ProcessingProgress = new BatchProcessingProgress((int)(p * 100), 100, p)), TimeSpan.FromMilliseconds(50), _processingCts.Token);
                     }
                     else
                     {
@@ -341,13 +367,7 @@ namespace TransportTracker.App.ViewModels
                             stops = GenerateMockStops(routes);
                             progress.Report(0.9);
                             
-                        }, new Progress<double>(p => ProcessingProgress = new BatchProcessingProgress 
-                        { 
-                            PercentComplete = p * 100, 
-                            Status = "Loading mock data...",
-                            CurrentBatch = 1,
-                            TotalBatches = 1
-                        }), TimeSpan.FromMilliseconds(50), _processingCts.Token);
+                        }, new Progress<double>(p => ProcessingProgress = new BatchProcessingProgress((int)(p * 100), 100, p)), TimeSpan.FromMilliseconds(50), _processingCts.Token);
                     }
                     
                     // Use batch processing for data updates when available
@@ -650,7 +670,7 @@ namespace TransportTracker.App.ViewModels
                 
             // Update the cluster manager with the new vehicles
             _clusterManager.UpdateClusters(vehiclePins);
-            _clusterManager.ApplyClustersToMap(true);
+            _clusterManager.ApplyClustersToMauiMap(true);
         }
         
         private List<RouteInfo> GenerateMockRoutes()

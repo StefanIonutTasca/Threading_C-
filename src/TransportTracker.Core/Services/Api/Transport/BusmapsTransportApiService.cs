@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using TransportTracker.Core.Threading;
 using TransportTracker.Core.Models;
 using TransportTracker.Core.Services.Api.Transport.Models;
 
@@ -48,7 +49,7 @@ namespace TransportTracker.Core.Services.Api.Transport
         /// <param name="maxTransfers">Optional maximum number of transfers</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>List of available routes</returns>
-        public async Task<List<Route>> GetRoutesAsync(
+        public async Task<List<TransportTracker.Core.Models.Route>> GetRoutesAsync(
             double originLat, 
             double originLon, 
             double destLat, 
@@ -67,18 +68,18 @@ namespace TransportTracker.Core.Services.Api.Transport
                     originLat, originLon, destLat, destLon, departureTime, maxTransfers, cancellationToken);
                 
                 // Map API response to domain models
-                var routes = new List<Route>();
+                var routes = new List<TransportTracker.Core.Models.Route>();
                 
                 if (response?.Routes != null)
                 {
                     foreach (var routeDto in response.Routes)
                     {
-                        var route = new Route
+                        var route = new TransportTracker.Core.Models.Route
                         {
                             Id = routeDto.Id,
                             Name = "Route " + routeDto.Id,
                             Description = $"{routeDto.Transfers} transfers, {routeDto.Duration / 60} min",
-                            TransportType = GetPredominantTransportType(routeDto),
+                            TransportType = GetPredominantTransportType(routeDto).ToVehicleType(),
                             // Add other properties as needed
                         };
                         
@@ -109,7 +110,7 @@ namespace TransportTracker.Core.Services.Api.Transport
         private static TransportType GetPredominantTransportType(Models.Route routeDto)
         {
             // Default to bus
-            var transportType = TransportType.BUS;
+            var transportType = TransportType.Bus;
             
             if (routeDto.Sections != null && routeDto.Sections.Count > 0)
             {
@@ -158,29 +159,29 @@ namespace TransportTracker.Core.Services.Api.Transport
         {
             if (string.IsNullOrEmpty(mode))
             {
-                return TransportType.BUS;
+                return TransportType.Bus;
             }
             
             switch (mode.ToLowerInvariant())
             {
                 case "bus":
-                    return TransportType.BUS;
+                    return TransportType.Bus;
                 case "subway":
                 case "metro":
-                    return TransportType.SUBWAY;
+                    return TransportType.Subway;
                 case "train":
                 case "rail":
-                    return TransportType.TRAIN;
+                    return TransportType.Train;
                 case "tram":
                 case "light_rail":
-                    return TransportType.TRAM;
+                    return TransportType.Tram;
                 case "ferry":
-                    return TransportType.FERRY;
+                    return TransportType.Ferry;
                 case "pedestrian":
                 case "walk":
-                    return TransportType.WALK;
+                    return TransportType.Unknown; // Walking is not in the enum, using Unknown instead
                 default:
-                    return TransportType.BUS;
+                    return TransportType.Bus;
             }
         }
 
@@ -394,11 +395,162 @@ namespace TransportTracker.Core.Services.Api.Transport
         /// <param name="routeIds">Route identifiers</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>List of routes</returns>
-        public Task<List<Route>> GetRoutesByIdsAsync(IEnumerable<string> routeIds, CancellationToken cancellationToken = default)
+        public Task<List<TransportTracker.Core.Models.Route>> GetRoutesByIdsAsync(IEnumerable<string> routeIds, CancellationToken cancellationToken = default)
         {
             // Busmaps API doesn't provide a direct endpoint to get routes by IDs
             _logger.LogWarning("GetRoutesByIdsAsync is not implemented for Busmaps API");
-            return Task.FromResult(new List<Route>());
+            return Task.FromResult(new List<TransportTracker.Core.Models.Route>());
+        }
+
+        /// <summary>
+        /// Get all available routes
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>List of routes</returns>
+        public Task<List<TransportTracker.Core.Models.Route>> GetRoutesAsync(CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation("Getting all routes");
+            // Since the API doesn't support getting all routes without coordinates,
+            // we'll return an empty list or fetch from a default location if needed
+            _logger.LogWarning("GetRoutesAsync without parameters is not fully implemented for Busmaps API");
+            return Task.FromResult(new List<TransportTracker.Core.Models.Route>());
+        }
+
+        /// <summary>
+        /// Get a specific route by ID
+        /// </summary>
+        /// <param name="routeId">ID of the route</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The route if found, null otherwise</returns>
+        public async Task<TransportTracker.Core.Models.Route> GetRouteAsync(string routeId, CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation($"Getting route with ID {routeId}");
+            try
+            {
+                // The Busmaps API doesn't directly support getting a route by ID
+                // This would need to be implemented with a proper endpoint when available
+                _logger.LogWarning("GetRouteAsync is not fully implemented for Busmaps API");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting route {routeId}: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get all stops for a specific route
+        /// </summary>
+        /// <param name="routeId">ID of the route</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>List of stops on the route</returns>
+        public async Task<List<Stop>> GetRouteStopsAsync(string routeId, CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation($"Getting stops for route {routeId}");
+            try
+            {
+                // Call the appropriate API endpoint when available
+                _logger.LogWarning("GetRouteStopsAsync is not fully implemented for Busmaps API");
+                return new List<Stop>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting stops for route {routeId}: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get all vehicles for a specific route
+        /// </summary>
+        /// <param name="routeId">ID of the route</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>List of vehicles on the route</returns>
+        public async Task<List<Vehicle>> GetRouteVehiclesAsync(string routeId, CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation($"Getting vehicles for route {routeId}");
+            try
+            {
+                // Since the API doesn't support real-time vehicle locations, return empty list
+                _logger.LogWarning("GetRouteVehiclesAsync is not implemented for Busmaps API");
+                return new List<Vehicle>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting vehicles for route {routeId}: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get all active vehicles with their locations
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>List of vehicles with their current locations</returns>
+        public Task<List<Vehicle>> GetVehicleLocationsAsync(CancellationToken cancellationToken = default)
+        {
+            _logger.LogWarning("GetVehicleLocationsAsync is not implemented for Busmaps API");
+            return Task.FromResult(new List<Vehicle>());
+        }
+
+        /// <summary>
+        /// Get details for a specific vehicle
+        /// </summary>
+        /// <param name="vehicleId">ID of the vehicle</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The vehicle if found, null otherwise</returns>
+        public Task<Vehicle> GetVehicleAsync(string vehicleId, CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation($"Getting vehicle with ID {vehicleId}");
+            _logger.LogWarning("GetVehicleAsync is not implemented for Busmaps API");
+            return Task.FromResult<Vehicle>(null);
+        }
+
+        /// <summary>
+        /// Get all stops
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>List of stops</returns>
+        public Task<List<Stop>> GetStopsAsync(CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation("Getting all stops");
+            _logger.LogWarning("GetStopsAsync without parameters is not fully implemented for Busmaps API");
+            // The API requires coordinates to get stops in a radius
+            return Task.FromResult(new List<Stop>());
+        }
+
+        /// <summary>
+        /// Get a specific stop by ID
+        /// </summary>
+        /// <param name="stopId">ID of the stop</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The stop if found, null otherwise</returns>
+        public async Task<Stop> GetStopAsync(string stopId, CancellationToken cancellationToken = default)
+        {
+            _logger.LogInformation($"Getting stop with ID {stopId}");
+            try
+            {
+                // Would need to implement with proper API endpoint when available
+                _logger.LogWarning("GetStopAsync is not fully implemented for Busmaps API");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting stop {stopId}: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Get arrival predictions for a specific stop
+        /// </summary>
+        /// <param name="stopId">ID of the stop</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>List of predictions for the stop</returns>
+        public async Task<List<ArrivalPrediction>> GetStopPredictionsAsync(string stopId, CancellationToken cancellationToken = default)
+        {
+            return await GetArrivalPredictionsAsync(stopId, null, cancellationToken);
         }
 
         /// <summary>
@@ -406,11 +558,11 @@ namespace TransportTracker.Core.Services.Api.Transport
         /// </summary>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>List of routes</returns>
-        public Task<List<Route>> GetAllRoutesAsync(CancellationToken cancellationToken = default)
+        public Task<List<TransportTracker.Core.Models.Route>> GetAllRoutesAsync(CancellationToken cancellationToken = default)
         {
             // Busmaps API doesn't provide an endpoint to get all routes
             _logger.LogWarning("GetAllRoutesAsync is not implemented for Busmaps API");
-            return Task.FromResult(new List<Route>());
+            return Task.FromResult(new List<TransportTracker.Core.Models.Route>());
         }
         
         /// <summary>
@@ -420,10 +572,10 @@ namespace TransportTracker.Core.Services.Api.Transport
         /// <param name="includeSteps">Whether to include turn-by-turn instructions</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Pedestrian route information</returns>
-        public async Task<Models.PedestrianRoute> GetPedestrianRouteAsync(
-            List<(double lat, double lon)> coordinates, 
-            bool includeSteps = false,
-            CancellationToken cancellationToken = default)
+        public async Task<TransportTracker.Core.Models.PedestrianRoute> GetPedestrianRouteAsync(
+    List<(double lat, double lon)> coordinates, 
+    bool includeSteps = false,
+    CancellationToken cancellationToken = default)
         {
             try
             {
@@ -439,36 +591,35 @@ namespace TransportTracker.Core.Services.Api.Transport
                 {
                     var route = response.Routes[0];
                     
-                    var result = new Models.PedestrianRoute
-                    {
-                        Duration = TimeSpan.FromSeconds(route.Duration),
-                        Distance = route.Distance,
-                        EncodedPolyline = route.Geometry,
-                        // Add other properties as needed
-                    };
-                    
-                    if (includeSteps && route.Legs != null)
-                    {
-                        result.Steps = new List<Models.RouteStep>();
-                        
-                        foreach (var leg in route.Legs)
-                        {
-                            if (leg.Steps != null)
-                            {
-                                foreach (var step in leg.Steps)
-                                {
-                                    result.Steps.Add(new Models.RouteStep
-                                    {
-                                        Instruction = $"{step.Maneuver?.GetDescription()} on {step.Name}",
-                                        Distance = step.Distance,
-                                        Duration = TimeSpan.FromSeconds(step.Duration)
-                                    });
-                                }
-                            }
-                        }
-                    }
-                    
-                    return result;
+                    var result = new TransportTracker.Core.Models.PedestrianRoute
+{
+    EncodedPolyline = route.Geometry, // string
+    Duration = TimeSpan.FromSeconds(route.Duration), // TimeSpan
+    Distance = route.Distance // double
+};
+
+if (includeSteps && route.Legs != null)
+{
+    var steps = new List<TransportTracker.Core.Models.RouteStep>();
+    foreach (var leg in route.Legs)
+    {
+        if (leg.Steps != null)
+        {
+            foreach (var step in leg.Steps)
+            {
+                steps.Add(new TransportTracker.Core.Models.RouteStep
+                {
+                    Instruction = $"{step.Maneuver?.GetDescription()} on {step.Name}",
+                    Distance = step.Distance,
+                    Duration = TimeSpan.FromSeconds(step.Duration)
+                });
+            }
+        }
+    }
+    result.Steps = steps;
+}
+
+return result;
                 }
                 
                 return null;

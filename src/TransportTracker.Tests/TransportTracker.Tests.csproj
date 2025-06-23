@@ -19,7 +19,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TransportTracker.Core\TransportTracker.Core.csproj" />
-    <ProjectReference Include="..\TransportTracker.App\TransportTracker.App.csproj" />
   </ItemGroup>
 
 </Project>

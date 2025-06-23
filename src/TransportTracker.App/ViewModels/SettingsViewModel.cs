@@ -34,7 +34,11 @@ namespace TransportTracker.App.ViewModels
             SaveSettingsCommand = CreateAsyncCommand(SaveSettingsAsync);
             ResetSettingsCommand = CreateCommand(ResetSettings);
             ToggleThemeCommand = CreateCommand(ToggleTheme);
-            SelectMapTypeCommand = CreateCommand<string>(SelectMapType);
+            SelectMapTypeCommand = CreateCommand((object param) =>
+{
+    if (param is string str)
+        SelectMapType(str);
+});
         }
 
         /// <summary>

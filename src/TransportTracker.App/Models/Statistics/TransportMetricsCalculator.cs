@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using TransportTracker.App.Core.Diagnostics;
 
+using TransportTracker.App.Views.Maps;
+using TransportTracker.App.Views.Maps.Overlays;
+
 namespace TransportTracker.App.Models.Statistics
 {
     /// <summary>
@@ -140,7 +143,9 @@ namespace TransportTracker.App.Models.Statistics
                     PassengerCount = totalPassengers,
                     VehicleCount = vehiclesOnRoute.Count,
                     AverageOccupancy = Math.Round(avgOccupancy, 1),
-                    Color = routeInfo?.Color ?? "#CCCCCC"
+                    Color = !string.IsNullOrWhiteSpace(routeInfo?.Color)
+    ? routeInfo.Color
+    : "#CCCCCC"
                 });
             }
             

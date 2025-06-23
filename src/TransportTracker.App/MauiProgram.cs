@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Controls.Maps;
+using CommunityToolkit.Maui;
 using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.Hosting;
 using Microsoft.Maui.Maps;
@@ -19,6 +20,7 @@ namespace TransportTracker.App
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
+                .UseMauiCommunityToolkit()
                 .UseMauiMaps()
                 .ConfigureFonts(fonts =>
                 {
@@ -35,7 +37,8 @@ namespace TransportTracker.App
 
             // Register services
             builder.Services.AddSingleton<INavigationService, NavigationService>();
-            builder.Services.AddSingleton<IMapService, MapService>();
+            // TODO: Implement IMapService and MapService or add the correct using directive if they exist
+// builder.Services.AddSingleton<IMapService, MapService>();
             builder.Services.AddSingleton<IVehiclesService, VehiclesService>();
             
             // Register ViewModelLocator

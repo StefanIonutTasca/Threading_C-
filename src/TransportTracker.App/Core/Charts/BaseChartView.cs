@@ -161,5 +161,12 @@ namespace TransportTracker.App.Core.Charts
                 }
             }
         }
+        /// <summary>
+        /// Invalidates the chart surface and triggers a redraw.
+        /// </summary>
+        public void InvalidateSurface()
+        {
+            this.Invalidate();
+        }
     }
 }

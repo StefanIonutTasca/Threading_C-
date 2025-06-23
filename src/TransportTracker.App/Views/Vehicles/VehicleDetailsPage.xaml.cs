@@ -2,10 +2,11 @@ using System;
 using System.Diagnostics;
 using TransportTracker.App.Core.UI;
 using TransportTracker.App.ViewModels;
+using TransportTracker.App.Core.MVVM;
 
 namespace TransportTracker.App.Views.Vehicles
 {
-    public partial class VehicleDetailsPage : BaseContentPage
+    public partial class VehicleDetailsPage : BaseContentPage<VehicleDetailsViewModel>
     {
         private bool _isFirstAppearance = true;
         private VehicleDetailsViewModel ViewModel => BindingContext as VehicleDetailsViewModel;

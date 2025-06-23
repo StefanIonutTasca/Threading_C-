@@ -1,8 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Maui">
 
 	<PropertyGroup>
-		<TargetFrameworks>net8.0-android;net8.0-ios;net8.0-maccatalyst</TargetFrameworks>
-		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net8.0-windows10.0.19041.0</TargetFrameworks>
+		<TargetFrameworks>net9.0-android;net9.0-ios;net9.0-maccatalyst</TargetFrameworks>
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net9.0-windows10.0.19041.0</TargetFrameworks>
 		<OutputType>Exe</OutputType>
 		<RootNamespace>TransportTracker.App</RootNamespace>
 		<UseMaui>true</UseMaui>
@@ -25,15 +25,15 @@
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
 		<DefaultLanguage>en</DefaultLanguage>
+		<WindowsPackageType>None</WindowsPackageType>
+		<SkipValidateMauiImplicitPackageReferences>true</SkipValidateMauiImplicitPackageReferences>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- App Icon -->
-		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+		<PackageReference Include="Microsoft.Maui.Controls" Version="8.0.83" />
+	</ItemGroup>
 
-		<!-- Splash Screen -->
-		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
-
+	<ItemGroup>
 		<!-- Images -->
 		<MauiImage Include="Resources\Images\*" />
 		<MauiImage Update="Resources\Images\dotnet_bot.svg" BaseSize="168,208" />

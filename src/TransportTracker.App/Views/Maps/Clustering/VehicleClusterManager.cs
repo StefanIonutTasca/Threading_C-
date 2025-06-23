@@ -1,4 +1,6 @@
+using MauiMap = Microsoft.Maui.Controls.Maps.Map;
 using Microsoft.Maui.Devices.Sensors;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using TransportTracker.App.Views.Maps.Overlays;
 
@@ -16,10 +18,10 @@ namespace TransportTracker.App.Views.Maps.Clustering
         private readonly int _minClusterSize;
         
         // The map the clusters are displayed on
-        private readonly Map _map;
+        private readonly MauiMap _map;
         
         // Collection of all vehicles being tracked
-        private readonly IEnumerable<TransportVehicle> _vehicles;
+        private readonly ObservableCollection<TransportVehicle> _vehicles; // Changed from IEnumerable to ObservableCollection for mutability
         
         // Collection of active clusters
         private readonly List<VehicleCluster> _clusters = new();
@@ -53,18 +55,13 @@ namespace TransportTracker.App.Views.Maps.Clustering
         /// <param name="vehicles">Collection of vehicles to manage</param>
         /// <param name="clusterDistance">Distance threshold in meters for creating clusters</param>
         /// <param name="minClusterSize">Minimum number of vehicles required to form a cluster</param>
-        public VehicleClusterManager(Map map, IEnumerable<TransportVehicle> vehicles, double clusterDistance = 150, int minClusterSize = 3)
+        public VehicleClusterManager(MauiMap map, ObservableCollection<TransportVehicle> vehicles, double clusterDistance = 150, int minClusterSize = 3)
         {
             _map = map;
             _vehicles = vehicles;
             _clusterDistanceThreshold = clusterDistance;
             _minClusterSize = minClusterSize;
-            
-            // If vehicles is an observable collection, subscribe to change events
-            if (_vehicles is INotifyCollectionChanged observable)
-            {
-                observable.CollectionChanged += OnVehiclesCollectionChanged;
-            }
+            _vehicles.CollectionChanged += OnVehiclesCollectionChanged;
         }
         
         /// <summary>
@@ -140,7 +137,7 @@ namespace TransportTracker.App.Views.Maps.Clustering
         /// Applies the current clustering to the map
         /// </summary>
         /// <param name="clearExisting">Whether to clear existing map elements</param>
-        public void ApplyClustersToMap(bool clearExisting = true)
+        public void ApplyClustersToMauiMap(bool clearExisting = true)
         {
             // Only clear vehicle and cluster pins if requested
             if (clearExisting)
@@ -283,7 +280,7 @@ namespace TransportTracker.App.Views.Maps.Clustering
         {
             // Update clusters when vehicles collection changes
             UpdateClusters();
-            ApplyClustersToMap();
+            ApplyClustersToMauiMap();
         }
     }
 }

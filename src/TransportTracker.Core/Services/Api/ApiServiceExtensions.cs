@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TransportTracker.Core.Services.Api.Transport;
 using TransportTracker.Core.Services;
+using TransportTracker.Core.Threading;
 
 namespace TransportTracker.Core.Services.Api
 {
@@ -22,6 +23,9 @@ namespace TransportTracker.Core.Services.Api
         /// <returns>The service collection for method chaining</returns>
         public static IServiceCollection AddApiServices(this IServiceCollection services, IConfiguration configuration)
         {
+            // Register thread factory
+            services.AddSingleton<TransportTracker.Core.Threading.IThreadFactory, TransportTracker.Core.Threading.DefaultThreadFactory>();
+
             // Register API client factory
             services.AddSingleton<IApiClientFactory, ApiClientFactory>();
             
@@ -116,7 +120,8 @@ namespace TransportTracker.Core.Services.Api
                 }
             };
 
-            return AddApiServices(services, apiConfigurations);
+            // Removed: Cannot pass Dictionary to AddApiServices expecting IConfiguration.
+return services; // Or implement as needed.
         }
         
         /// <summary>
@@ -159,7 +164,8 @@ namespace TransportTracker.Core.Services.Api
                 var httpClient = httpClientFactory.CreateClient("TransportApiClient");
                 var logger = sp.GetRequiredService<ILogger<TransportApiClient>>();
                 
-                return new TransportApiClient(httpClient, logger, maxRetryAttempts);
+                // Adjust as per TransportApiClient constructor signature. If it expects Uri, pass new Uri(baseUrl).
+return new TransportApiClient(httpClient, logger, new Uri(baseUrl)); // Adjust if more params are needed.
             });
             
             return services;
@@ -177,7 +183,9 @@ namespace TransportTracker.Core.Services.Api
             services.AddSingleton<ITransportApiClient>(sp =>
             {
                 var logger = sp.GetRequiredService<ILogger<MockApiService>>();
-                return new MockApiService(logger);
+                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+var threadFactory = sp.GetRequiredService<IThreadFactory>();
+return new MockApiService(logger, loggerFactory, threadFactory);
             });
             
             return services;

@@ -7,6 +7,8 @@ using Microsoft.Extensions.Logging;
 using TransportTracker.Core.Collections;
 using TransportTracker.Core.Models;
 using TransportTracker.Core.Services.Mock;
+using TransportTracker.Core.Threading;
+using TransportTracker.Core.Threading.Coordination;
 
 namespace TransportTracker.Core.Services.Api
 {
@@ -54,10 +56,18 @@ namespace TransportTracker.Core.Services.Api
         /// Creates a new mock API service
         /// </summary>
         /// <param name="logger">Logger for diagnostics</param>
-        public MockApiService(ILogger<MockApiService> logger)
+        private readonly ILoggerFactory _loggerFactory;
+        private readonly IThreadFactory _threadFactory;
+
+        public MockApiService(ILogger<MockApiService> logger, ILoggerFactory loggerFactory, IThreadFactory threadFactory)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _dataGenerator = new MockDataGenerator(logger);
+            _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
+            _threadFactory = threadFactory ?? throw new ArgumentNullException(nameof(threadFactory));
+            _dataGenerator = new MockDataGenerator(
+                _loggerFactory.CreateLogger<MockDataGenerator>(),
+                _loggerFactory.CreateLogger<ThreadCoordinator>(),
+                _threadFactory);
             _logger.LogInformation("Mock API service initialized");
         }
         
@@ -80,9 +90,9 @@ namespace TransportTracker.Core.Services.Api
                 
                 // Generate mock data
                 var routes = _dataGenerator.GenerateRoutes(20);
-                var stops = _dataGenerator.GenerateStops(100);
-                var vehicles = _dataGenerator.GenerateVehicles(50);
-                var schedules = _dataGenerator.GenerateSchedules(routes, vehicles);
+                var stops = _dataGenerator.GenerateStops(routes, 100);
+                var vehicles = _dataGenerator.GenerateVehicles(routes, 50);
+                var schedules = _dataGenerator.GenerateSchedules(routes, stops);
                 
                 // Store in thread-safe dictionaries
                 foreach (var route in routes)
@@ -293,7 +303,7 @@ namespace TransportTracker.Core.Services.Api
             await SimulateNetworkDelayAsync(cancellationToken);
             
             // For vehicles, we'll update their positions each time to simulate movement
-            _dataGenerator.UpdateVehiclePositions(_vehicles.Values);
+            _dataGenerator.UpdateVehiclePositions(_vehicles.Values, 0);
             
             return _vehicles.Values.Select(v => v.Clone()).ToList();
         }
@@ -320,7 +330,7 @@ namespace TransportTracker.Core.Services.Api
             await SimulateNetworkDelayAsync(cancellationToken);
             
             // Update vehicle positions to simulate movement
-            _dataGenerator.UpdateVehiclePositions(_vehicles.Values);
+            _dataGenerator.UpdateVehiclePositions(_vehicles.Values, 0);
             
             // Get vehicles assigned to this route
             return _vehicles.Values
@@ -353,7 +363,7 @@ namespace TransportTracker.Core.Services.Api
             if (_vehicles.TryGetValue(vehicleId, out var vehicle))
             {
                 // Update position before returning
-                _dataGenerator.UpdateVehiclePosition(vehicle);
+                _dataGenerator.UpdateVehiclePositions(new[] { vehicle }, 0);
                 var result = vehicle.Clone();
                 
                 if (includeRoute && !string.IsNullOrEmpty(result.RouteId) && 
@@ -476,6 +486,29 @@ namespace TransportTracker.Core.Services.Api
         /// Gets API usage statistics
         /// </summary>
         public ApiUsageStatistics GetApiUsageStatistics() => _apiUsageStatistics;
+        
+        /// <summary>
+        /// Gets API usage statistics asynchronously
+        /// </summary>
+        /// <param name="cancellationToken">Optional cancellation token</param>
+        /// <returns>Task containing API usage statistics</returns>
+        public Task<ApiUsageStatistics> GetApiUsageStatisticsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(_apiUsageStatistics);
+        }
+        
+        /// <summary>
+        /// Clears any cached data in the client
+        /// </summary>
+        public void ClearCache()
+        {
+            _logger.LogInformation("Clearing mock API cache");
+            _routes.Clear();
+            _stops.Clear();
+            _vehicles.Clear();
+            _schedules.Clear();
+            _dataInitialized = false;
+        }
         
         /// <summary>
         /// Authenticates with the API using the provided key

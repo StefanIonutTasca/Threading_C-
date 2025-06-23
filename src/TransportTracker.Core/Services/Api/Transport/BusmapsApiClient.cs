@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Polly;
 using Polly.Extensions.Http;
+using TransportTracker.Core.Services.Api.Transport.Models;
 
 namespace TransportTracker.Core.Services.Api.Transport
 {
@@ -56,9 +57,9 @@ namespace TransportTracker.Core.Services.Api.Transport
                 // Clear any existing headers
                 httpClient.DefaultRequestHeaders.Clear();
                 
-                // Add required Busmaps headers
-                httpClient.DefaultRequestHeaders.Add("capi-key", $"Bearer {apiKey}");
-                httpClient.DefaultRequestHeaders.Add("capi-host", platformHost);
+                // Add required RapidAPI headers
+                httpClient.DefaultRequestHeaders.Add("x-rapidapi-key", apiKey);
+                httpClient.DefaultRequestHeaders.Add("x-rapidapi-host", platformHost);
                 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             }
             else

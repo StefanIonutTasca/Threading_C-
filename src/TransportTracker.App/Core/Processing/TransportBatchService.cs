@@ -7,6 +7,9 @@ using Microsoft.Maui.Devices.Sensors;
 using System.Linq;
 using TransportTracker.App.Models;
 
+using TransportTracker.App.Views.Maps;
+using TransportTracker.App.Views.Maps.Overlays;
+
 namespace TransportTracker.App.Core.Processing
 {
     /// <summary>

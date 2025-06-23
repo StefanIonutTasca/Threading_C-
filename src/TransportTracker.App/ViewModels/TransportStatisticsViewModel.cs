@@ -1,13 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using TransportTracker.Core.Services.Api.Transport;
+using TransportTracker.App.Services.Caching;
+using TransportTracker.App.Views.Maps.Overlays;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using TransportTracker.App.Core.Diagnostics;
+using TransportTracker.App.Core.MVVM;
 using TransportTracker.App.Models;
 using TransportTracker.App.Models.Statistics;
-using TransportTracker.App.Services;
+using TransportTracker.App.Views.Maps;
+using TransportTracker.Core.Models;
 
 namespace TransportTracker.App.ViewModels
 {
@@ -166,9 +171,50 @@ namespace TransportTracker.App.ViewModels
                 if (_useRealData && _apiService != null)
                 {
                     // Use real API with caching
-                    _vehicleData = await _apiService.GetVehiclesAsync(null, forceRefresh);
-                    _routeData = await _apiService.GetRoutesAsync(null, forceRefresh);
-                    _stopData = await _apiService.GetStopsAsync(null, forceRefresh);
+                    var vehicles = await _apiService.GetVehicleLocationsAsync();
+                    var routes = await _apiService.GetRoutesAsync();
+                    var stops = await _apiService.GetStopsAsync();
+
+                    // Map core models to UI models
+                    _vehicleData = vehicles?.Select(v => new TransportVehicle {
+                        Id = v.Id,
+                        RouteId = v.RouteId,
+                        Type = v.Type.ToString(),
+                        Status = v.Status.ToString(),
+                        Speed = v.Speed,
+                        Occupancy = v.OccupancyPercentage,
+                        DelayMinutes = 0,
+                        LastUpdated = v.LastUpdated,
+                        Latitude = v.Latitude,
+                        Longitude = v.Longitude,
+                        Capacity = v.Capacity,
+                        IsDelayed = v.Status == VehicleStatus.Delayed,
+                        Number = v.RegistrationNumber
+                    }).ToList();
+
+                    _routeData = routes?.Select(r => new RouteInfo {
+                        Id = r.Id,
+                        Name = r.Name,
+                        Code = r.Code ?? r.ShortName,
+                        Type = r.TransportType.ToString(),
+                        Color = !string.IsNullOrWhiteSpace(r.Color) ? Microsoft.Maui.Graphics.Color.FromArgb(r.Color) : Microsoft.Maui.Graphics.Color.FromArgb("#CCCCCC"),
+                        Distance = 0,
+                        IsActive = r.IsActive,
+                        VehicleCount = r.VehicleCount,
+                        Origin = r.Origin,
+                        Destination = r.Destination,
+                        FrequencyMinutes = r.FrequencyMinutes,
+                        IsBidirectional = r.IsBidirectional
+                    }).ToList();
+
+                    _stopData = stops?.Select(s => new TransportStop {
+                        Id = s.Id,
+                        Name = s.Name,
+                        RouteId = s.RouteId,
+                        IsAccessible = s.IsAccessible,
+                        HasShelter = s.HasShelter,
+                        // Add more mappings as needed
+                    }).ToList();
                 }
                 else
                 {
@@ -240,12 +286,13 @@ namespace TransportTracker.App.ViewModels
             for (int i = 1; i <= 20; i++)
             {
                 var type = types[random.Next(types.Length)];
+                var color = $"#{random.Next(0x1000000):X6}";
                 routes.Add(new RouteInfo
                 {
                     Id = $"R{i}",
                     Name = $"Route {i}",
                     Type = type,
-                    Color = $"#{random.Next(0x1000000):X6}",
+                    Color = !string.IsNullOrWhiteSpace(color) ? Microsoft.Maui.Graphics.Color.FromArgb(color) : Microsoft.Maui.Graphics.Color.FromArgb("#CCCCCC"),
                     Distance = random.Next(5, 50)
                 });
             }

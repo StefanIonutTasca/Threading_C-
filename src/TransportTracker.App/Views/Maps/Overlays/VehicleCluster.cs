@@ -4,11 +4,18 @@ using Microsoft.Maui.Graphics;
 
 namespace TransportTracker.App.Views.Maps.Overlays
 {
+    
+
     /// <summary>
     /// Represents a cluster of transport vehicles on the map for areas with many vehicles
     /// </summary>
     public class VehicleCluster : Pin
     {
+        /// <summary>
+        /// Gets or sets whether the cluster is draggable on the map.
+        /// </summary>
+        public bool IsDraggable { get; set; }
+
         /// <summary>
         /// Gets or sets the collection of vehicle IDs contained in this cluster
         /// </summary>
@@ -51,7 +58,7 @@ namespace TransportTracker.App.Views.Maps.Overlays
         {
             // Set default pin style for clusters
             Label = "Multiple Vehicles";
-            ImageSource = "cluster_icon.png";
+            // TODO: Assign a valid variable or property for image source here = "cluster_icon.png";
             IsDraggable = false;
         }
         
@@ -72,7 +79,7 @@ namespace TransportTracker.App.Views.Maps.Overlays
             
             // Set appearance based on cluster size
             Label = $"{Count} Vehicles";
-            ImageSource = "cluster_icon.png";
+            // TODO: Assign a valid variable or property for image source here = "cluster_icon.png";
             IsDraggable = false;
             
             UpdateClusterAppearance();

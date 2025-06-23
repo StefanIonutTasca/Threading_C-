@@ -85,30 +85,23 @@ namespace TransportTracker.Core.Parallel.Processing
             _logger.LogDebug($"Created {batches.Count} batches");
             
             // Process batches in parallel
-            Parallel.ForEach(
-                batches,
-                new ParallelOptions
+            foreach (var batch in batches)
+            {
+                try
                 {
-                    MaxDegreeOfParallelism = options.MaxDegreeOfParallelism ?? Environment.ProcessorCount,
-                    CancellationToken = options.CancellationTokenSource?.Token ?? CancellationToken.None
-                },
-                (batch, state, batchIndex) =>
-                {
-                    try
-                    {
-                        _logger.LogDebug($"Processing batch {batchIndex} with {batch.Count} items");
-                        
-                        // Process each item in the batch using PLINQ
-                        var batchResults = batch
-                            .AsParallel()
-                            .WithDegreeOfParallelism(options.MaxDegreeOfParallelism ?? Environment.ProcessorCount)
-                            .WithCancellation(options.CancellationTokenSource?.Token ?? CancellationToken.None)
-                            .Select(item =>
-                            {
-                                TOutput result = processor(item);
-                                return result;
-                            })
-                            .ToList();
+                    _logger.LogDebug($"Processing batch {batches.IndexOf(batch)} with {batch.Count} items");
+                    
+                    // Process each item in the batch using PLINQ
+                    var batchResults = batch
+                        .AsParallel()
+                        .WithDegreeOfParallelism(options.MaxDegreeOfParallelism ?? Environment.ProcessorCount)
+                        .WithCancellation(options.CancellationTokenSource?.Token ?? CancellationToken.None)
+                        .Select(item =>
+                        {
+                            TOutput result = processor(item);
+                            return result;
+                        })
+                        .ToList();
                             
                         // Add results to the concurrent bag
                         foreach (var result in batchResults)
@@ -128,13 +121,12 @@ namespace TransportTracker.Core.Parallel.Processing
                     catch (OperationCanceledException)
                     {
                         _logger.LogInformation("Batch processing canceled");
-                        state.Stop();
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, $"Error processing batch {batchIndex}");
+                        _logger.LogError(ex, $"Error processing batch");
                     }
-                });
+                }
                 
             stopwatch.Stop();
             _logger.LogInformation(

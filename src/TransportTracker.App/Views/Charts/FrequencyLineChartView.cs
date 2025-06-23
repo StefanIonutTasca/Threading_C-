@@ -199,7 +199,10 @@ namespace TransportTracker.App.Views.Charts
                 // Draw the line
                 canvas.StrokeColor = LineColor;
                 canvas.StrokeSize = LineThickness;
-                canvas.DrawLines(points);
+                for (int i = 0; i < points.Length - 1; i++)
+                {
+                    canvas.DrawLine(points[i], points[i + 1]);
+                }
 
                 // Draw points
                 if (ShowPoints)
@@ -241,6 +244,13 @@ namespace TransportTracker.App.Views.Charts
             canvas.FontColor = LabelTextColor;
             canvas.FontSize = 14;
             canvas.DrawString("Time of Day", chartLeft + (chartWidth / 2), chartBottom + 40, HorizontalAlignment.Center);
+        }
+        /// <summary>
+        /// Invalidates the chart surface and triggers a redraw.
+        /// </summary>
+        public void InvalidateSurface()
+        {
+            base.InvalidateSurface();
         }
     }
 }

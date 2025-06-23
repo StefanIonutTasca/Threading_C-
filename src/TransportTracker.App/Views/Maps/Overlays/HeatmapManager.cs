@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Maui.Controls.Maps;
+using MauiMap = Microsoft.Maui.Controls.Maps.Map;
 using Microsoft.Maui.Devices.Sensors;
 using TransportTracker.App.Core.Processing;
 using TransportTracker.App.Models;
@@ -15,7 +15,7 @@ namespace TransportTracker.App.Views.Maps.Overlays
     /// </summary>
     public class HeatmapManager
     {
-        private readonly Map _map;
+        private readonly MauiMap _map;
         private readonly HeatmapLayer _heatmapLayer;
         private readonly TransportBatchService _batchService;
         
@@ -61,7 +61,7 @@ namespace TransportTracker.App.Views.Maps.Overlays
         /// <summary>
         /// Creates a new heatmap manager for the specified map
         /// </summary>
-        public HeatmapManager(Map map)
+        public HeatmapManager(MauiMap map)
         {
             _map = map ?? throw new ArgumentNullException(nameof(map));
             _heatmapLayer = new HeatmapLayer(map);

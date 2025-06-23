@@ -70,7 +70,7 @@ namespace TransportTracker.Core.Services.Api.Transport
             {
                 var apiClient = _apiClientFactory.CreateClient(_apiName);
                 return await apiClient.GetAsync<Route>(
-                    ApiEndpoints.Route(routeId),
+                    ApiEndpoints.RouteById(routeId),
                     cancellationToken: cancellationToken);
             }
             catch (ApiClientException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -99,7 +99,7 @@ namespace TransportTracker.Core.Services.Api.Transport
             {
                 var apiClient = _apiClientFactory.CreateClient(_apiName);
                 var response = await apiClient.GetAsync<List<Stop>>(
-                    ApiEndpoints.RouteStops(routeId),
+                    ApiEndpoints.RouteStopsById(routeId),
                     cancellationToken: cancellationToken);
                 
                 _logger.LogInformation("Successfully fetched {Count} stops for route {RouteId}", response?.Count ?? 0, routeId);
@@ -131,7 +131,7 @@ namespace TransportTracker.Core.Services.Api.Transport
             {
                 var apiClient = _apiClientFactory.CreateClient(_apiName);
                 var response = await apiClient.GetAsync<List<Vehicle>>(
-                    ApiEndpoints.RouteVehicles(routeId),
+                    ApiEndpoints.RouteVehiclesById(routeId),
                     cancellationToken: cancellationToken);
                 
                 _logger.LogInformation("Successfully fetched {Count} vehicles for route {RouteId}", response?.Count ?? 0, routeId);
@@ -185,7 +185,7 @@ namespace TransportTracker.Core.Services.Api.Transport
             {
                 var apiClient = _apiClientFactory.CreateClient(_apiName);
                 return await apiClient.GetAsync<Vehicle>(
-                    ApiEndpoints.Vehicle(vehicleId),
+                    ApiEndpoints.VehicleById(vehicleId),
                     cancellationToken: cancellationToken);
             }
             catch (ApiClientException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -236,7 +236,7 @@ namespace TransportTracker.Core.Services.Api.Transport
             {
                 var apiClient = _apiClientFactory.CreateClient(_apiName);
                 return await apiClient.GetAsync<Stop>(
-                    ApiEndpoints.Stop(stopId),
+                    ApiEndpoints.StopById(stopId),
                     cancellationToken: cancellationToken);
             }
             catch (ApiClientException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -265,7 +265,7 @@ namespace TransportTracker.Core.Services.Api.Transport
             {
                 var apiClient = _apiClientFactory.CreateClient(_apiName);
                 var response = await apiClient.GetAsync<List<ArrivalPrediction>>(
-                    ApiEndpoints.StopPredictions(stopId),
+                    ApiEndpoints.StopPredictionsById(stopId),
                     cancellationToken: cancellationToken);
                 
                 _logger.LogInformation("Successfully fetched {Count} predictions for stop {StopId}", response?.Count ?? 0, stopId);

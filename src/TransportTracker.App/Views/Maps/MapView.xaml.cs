@@ -270,20 +270,6 @@ namespace TransportTracker.App.Views.Maps
         }
     }
     
-    // Basic vehicle model (will be replaced by core domain model)
-    public class TransportVehicle
-    {
-        public string Id { get; set; }
-        public string Type { get; set; }
-        public string RouteNumber { get; set; }
-        public double CurrentSpeed { get; set; }
-        public int Heading { get; set; }
-        public double Latitude { get; set; }
-        public double Longitude { get; set; }
-        public DateTime LastUpdated { get; set; }
-        public string Color { get; set; }
-        public bool IsDelayed { get; set; }
-    }
     
     // Custom pin class (will be used for custom rendering)
     public class TransportPin : Pin

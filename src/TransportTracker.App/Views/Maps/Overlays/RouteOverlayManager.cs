@@ -1,3 +1,4 @@
+using MauiMap = Microsoft.Maui.Controls.Maps.Map;
 using Microsoft.Maui.Devices.Sensors;
 using Microsoft.Maui.Graphics;
 using System.Collections.ObjectModel;
@@ -10,7 +11,7 @@ namespace TransportTracker.App.Views.Maps.Overlays
     public class RouteOverlayManager
     {
         // Reference to the map to add elements to
-        private readonly Map _map;
+        private readonly MauiMap _map;
         
         // Collection of active route polylines
         private readonly Dictionary<string, RoutePolyline> _activeRoutes = new();
@@ -35,7 +36,7 @@ namespace TransportTracker.App.Views.Maps.Overlays
         /// Initializes a new instance of the <see cref="RouteOverlayManager"/> class
         /// </summary>
         /// <param name="map">The map to add routes and stops to</param>
-        public RouteOverlayManager(Map map)
+        public RouteOverlayManager(MauiMap map)
         {
             _map = map ?? throw new ArgumentNullException(nameof(map));
         }

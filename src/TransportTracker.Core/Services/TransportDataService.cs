@@ -289,7 +289,7 @@ namespace TransportTracker.Core.Services
             {
                 _logger.LogDebug("Refreshing vehicles from API");
                 
-                var vehicles = await _apiClient.GetVehiclesAsync(true, cancellationToken);
+                var vehicles = await _apiClient.GetVehiclesAsync(forceRefresh: true, cancellationToken: cancellationToken);
                 
                 if (vehicles == null || !vehicles.Any())
                 {
@@ -343,7 +343,7 @@ namespace TransportTracker.Core.Services
                 if (_routes.TryGetValue(routeId, out var route))
                 {
                     route.Schedules = schedules.ToList();
-                    _routes.NotifyItemUpdated(routeId, route);
+                    _routes.NotifyItemUpdated(new KeyValuePair<string, Route>(routeId, route));
                     
                     _logger.LogInformation("Updated {Count} schedules for route {RouteId}", 
                         schedules.Count(), routeId);
@@ -359,7 +359,37 @@ namespace TransportTracker.Core.Services
         /// <summary>
         /// Gets API usage statistics
         /// </summary>
-        public ApiUsageStatistics GetApiUsageStatistics() => _apiClient.GetApiUsageStatistics();
+        /// <returns>API usage statistics</returns>
+        public async Task<ApiUsageStatistics> GetApiUsageStatisticsAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await _apiClient.GetApiUsageStatisticsAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting API usage statistics");
+                throw;
+            }
+        }
+        
+        /// <summary>
+        /// Gets API usage statistics synchronously
+        /// </summary>
+        /// <returns>API usage statistics</returns>
+        public ApiUsageStatistics GetApiUsageStatistics()
+        {
+            try
+            {
+                // Call the async method and wait for the result
+                return GetApiUsageStatisticsAsync().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting API usage statistics synchronously");
+                throw;
+            }
+        }
         
         /// <summary>
         /// Disposes resources

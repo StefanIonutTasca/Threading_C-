@@ -8,6 +8,11 @@ namespace TransportTracker.App.Views.Maps
     public class RouteInfo
     {
         /// <summary>
+        /// Gets or sets the distance of the route in kilometers.
+        /// </summary>
+        public double Distance { get; set; }
+
+        /// <summary>
         /// Gets or sets the unique identifier for the route
         /// </summary>
         public string Id { get; set; }
