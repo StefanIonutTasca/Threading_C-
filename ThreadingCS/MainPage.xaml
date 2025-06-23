@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:ThreadingCS.ViewModels"
+             x:Class="ThreadingCS.MainPage"
+             Title="Public Transport Tracker">
+    
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <Style x:Key="CardStyle" TargetType="Frame">
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Margin" Value="0,5" />
+                <Setter Property="Padding" Value="15" />
+                <Setter Property="BorderColor" Value="#DDDDDD" />
+                <Setter Property="HasShadow" Value="True" />
+            </Style>
+            
+            <Style x:Key="ButtonStyle" TargetType="Button">
+                <Setter Property="Margin" Value="0,5" />
+                <Setter Property="Padding" Value="15,10" />
+                <Setter Property="CornerRadius" Value="5" />
+            </Style>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto, *" Padding="20">
+        <!-- Header Section -->
+        <StackLayout Grid.Row="0" Spacing="15">
+            <Label Text="Public Transport Tracker" 
+                   Style="{StaticResource Headline}" 
+                   HorizontalOptions="Center" />
+            
+            <Label Text="A multi-threaded real-time transport tracking application"
+                   Style="{StaticResource SubHeadline}"
+                   HorizontalOptions="Center" />
+
+            <Frame Style="{StaticResource CardStyle}">
+                <StackLayout>
+                    <Label Text="Status" FontAttributes="Bold" />
+                    <Label Text="{Binding StatusMessage}" TextColor="#666666" />
+                    
+                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto" Margin="0,10,0,0">
+                        <ProgressBar Grid.Column="0" Progress="{Binding ProgressValue}" />
+                        <Label Grid.Column="1" Text="{Binding ProcessedRecords, StringFormat='{0:N0} records'}" />
+                    </Grid>
+                </StackLayout>
+            </Frame>
+            
+            <!-- Controls Section -->
+            <Grid ColumnDefinitions="*, *" RowDefinitions="Auto" ColumnSpacing="10">
+                <Button Grid.Column="0" 
+                        Text="Load Data" 
+                        Style="{StaticResource ButtonStyle}"
+                        BackgroundColor="#4CAF50"
+                        TextColor="White"
+                        Clicked="OnLoadDataClicked" />
+                
+                <Button Grid.Column="1" 
+                        x:Name="MonitorButton"
+                        Text="Start Monitoring" 
+                        Style="{StaticResource ButtonStyle}"
+                        BackgroundColor="#2196F3"
+                        TextColor="White"
+                        Clicked="OnMonitoringClicked" />
+            </Grid>
+            
+            <Button Text="Process Large Dataset (100,000+ records with PLINQ)" 
+                    Style="{StaticResource ButtonStyle}"
+                    BackgroundColor="#FF9800"
+                    TextColor="White"
+                    Clicked="OnProcessLargeDatasetClicked" />
+            
+            <!-- Filters Section -->
+            <Frame Style="{StaticResource CardStyle}">
+                <StackLayout>
+                    <Label Text="Filters" FontAttributes="Bold" />
+                    
+                    <Grid RowDefinitions="Auto, Auto, Auto" ColumnDefinitions="Auto, *" RowSpacing="10" ColumnSpacing="10">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Search:" VerticalOptions="Center" />
+                        <Entry Grid.Row="0" Grid.Column="1" Text="{Binding SearchTerm}" Placeholder="Enter route name..." />
+                        
+                        <Label Grid.Row="1" Grid.Column="0" Text="Max Duration:" VerticalOptions="Center" />
+                        <Slider Grid.Row="1" Grid.Column="1" Minimum="10" Maximum="120" Value="{Binding MaxDuration}" />
+                        
+                        <Label Grid.Row="2" Grid.Column="0" Text="Max Distance:" VerticalOptions="Center" />
+                        <Slider Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="30" Value="{Binding MaxDistance}" />
+                    </Grid>
+                </StackLayout>
+            </Frame>
+        </StackLayout>
+        
+        <!-- Results Section -->
+        <ScrollView Grid.Row="1" Margin="0,10,0,0">
+            <StackLayout Spacing="10">
+                <Label Text="Routes" FontAttributes="Bold" FontSize="16" />
+                
+                <CollectionView ItemsSource="{Binding FilteredRoutes}" EmptyView="No routes found">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Frame Style="{StaticResource CardStyle}">
+                                <Grid RowDefinitions="Auto, Auto, Auto" ColumnDefinitions="*, Auto">
+                                    <Label Grid.Row="0" Grid.Column="0" 
+                                           Text="{Binding RouteName}" 
+                                           FontAttributes="Bold" />
+                                    
+                                    <Label Grid.Row="0" Grid.Column="1" 
+                                           Text="{Binding AgencyName}" 
+                                           TextColor="#666666" />
+                                    
+                                    <BoxView Grid.Row="1" Grid.ColumnSpan="2"
+                                             Color="{Binding Color}"
+                                             HeightRequest="4"
+                                             Margin="0,5" />
+                                    
+                                    <Grid Grid.Row="2" Grid.ColumnSpan="2" ColumnDefinitions="*, *">
+                                        <Label Grid.Column="0" 
+                                               Text="{Binding Duration, StringFormat='{0} minutes'}" 
+                                               TextColor="#333333" />
+                                        
+                                        <Label Grid.Column="1" 
+                                               Text="{Binding Distance, StringFormat='{0:F1} km'}" 
+                                               TextColor="#333333"
+                                               HorizontalOptions="End" />
+                                    </Grid>
+                                </Grid>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </StackLayout>
+        </ScrollView>
+        
+        <!-- Loading Overlay -->
+        <Grid Grid.RowSpan="2" IsVisible="{Binding IsLoading}" BackgroundColor="#80000000">
+            <StackLayout VerticalOptions="Center" HorizontalOptions="Center">
+                <ActivityIndicator IsRunning="True" Color="White" />
+                <Label Text="Loading..." TextColor="White" Margin="0,10,0,0" />
+            </StackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>

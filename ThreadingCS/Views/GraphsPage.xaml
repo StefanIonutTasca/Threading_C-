@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:ThreadingCS.ViewModels"
+             x:Class="ThreadingCS.Views.GraphsPage"
+             Title="Arrival Time Graphs">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <Style x:Key="CardStyle" TargetType="Frame">
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Margin" Value="0,5" />
+                <Setter Property="Padding" Value="15" />
+                <Setter Property="BorderColor" Value="#DDDDDD" />
+                <Setter Property="HasShadow" Value="True" />
+            </Style>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto, *" Padding="20">
+        <!-- Header Section -->
+        <StackLayout Grid.Row="0" Spacing="15">
+            <Label Text="Transport Data Visualization" 
+                   Style="{StaticResource Headline}" 
+                   HorizontalOptions="Center" />
+            
+            <Label Text="Real-time arrival predictions and analytics"
+                   Style="{StaticResource SubHeadline}"
+                   HorizontalOptions="Center" />
+
+            <Frame Style="{StaticResource CardStyle}">
+                <StackLayout>
+                    <Label Text="Status" FontAttributes="Bold" />
+                    <Label Text="{Binding StatusMessage}" TextColor="#666666" />
+                    
+                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto" Margin="0,10,0,0">
+                        <ProgressBar Grid.Column="0" Progress="{Binding ProcessingProgress}" />
+                        <Label Grid.Column="1" Text="{Binding ProcessedRoutes, StringFormat='{0:N0} routes'}" />
+                    </Grid>
+                </StackLayout>
+            </Frame>
+
+            <!-- Control Section -->
+            <Grid ColumnDefinitions="*, *" ColumnSpacing="10">
+                <Button Grid.Column="0"
+                        Text="Generate Data"
+                        BackgroundColor="#4CAF50"
+                        TextColor="White"
+                        CornerRadius="5"
+                        Margin="0,5"
+                        Clicked="OnGenerateDataClicked" />
+
+                <Button Grid.Column="1"
+                        Text="Start Live Updates"
+                        x:Name="LiveUpdatesButton"
+                        BackgroundColor="#2196F3"
+                        TextColor="White"
+                        CornerRadius="5"
+                        Margin="0,5"
+                        Clicked="OnLiveUpdatesClicked" />
+            </Grid>
+
+            <Frame Style="{StaticResource CardStyle}">
+                <StackLayout>
+                    <Label Text="Chart Type" FontAttributes="Bold" />
+                    <Picker ItemsSource="{Binding ChartTypes}"
+                            SelectedItem="{Binding SelectedChartType}"
+                            Margin="0,5" />
+                </StackLayout>
+            </Frame>
+        </StackLayout>
+
+        <!-- Graph Section -->
+        <ScrollView Grid.Row="1" Margin="0,10,0,0">
+            <StackLayout Spacing="20">
+                <!-- This is a placeholder for the chart, in a real implementation 
+                     we would use a proper charting library -->
+                <Frame Style="{StaticResource CardStyle}" 
+                       HeightRequest="300"
+                       Padding="0"
+                       IsVisible="{Binding HasData}">
+                    <Grid x:Name="ChartContainer" BackgroundColor="#F8F9FA">
+                        <Label Text="Chart will be rendered here"
+                               IsVisible="{Binding IsGeneratingChart}"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center" />
+                    </Grid>
+                </Frame>
+
+                <!-- Statistics Section -->
+                <Frame Style="{StaticResource CardStyle}" IsVisible="{Binding HasData}">
+                    <Grid RowDefinitions="Auto, Auto, Auto, Auto" 
+                          ColumnDefinitions="*, *"
+                          RowSpacing="10">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Total Routes:" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding StatsRouteCount}" HorizontalOptions="End" />
+                        
+                        <Label Grid.Row="1" Grid.Column="0" Text="Average Duration:" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding StatsAverageDuration, StringFormat='{0:F1} min'}" HorizontalOptions="End" />
+                        
+                        <Label Grid.Row="2" Grid.Column="0" Text="Shortest Route:" />
+                        <Label Grid.Row="2" Grid.Column="1" Text="{Binding StatsShortestRoute}" HorizontalOptions="End" />
+                        
+                        <Label Grid.Row="3" Grid.Column="0" Text="Longest Route:" />
+                        <Label Grid.Row="3" Grid.Column="1" Text="{Binding StatsLongestRoute}" HorizontalOptions="End" />
+                    </Grid>
+                </Frame>
+
+                <!-- Route Distribution Table -->
+                <Frame Style="{StaticResource CardStyle}" IsVisible="{Binding HasRouteDistribution}">
+                    <StackLayout>
+                        <Label Text="Route Distribution by Agency" FontAttributes="Bold" />
+                        <CollectionView ItemsSource="{Binding RouteDistribution}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="*, Auto" Padding="0,5">
+                                        <Label Grid.Column="0" Text="{Binding Key}" />
+                                        <Label Grid.Column="1" Text="{Binding Value, StringFormat='{0} routes'}" HorizontalOptions="End" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </StackLayout>
+                </Frame>
+
+                <!-- We'll render bars programmatically to simulate a chart -->
+                <Frame Style="{StaticResource CardStyle}" IsVisible="{Binding HasData}">
+                    <StackLayout>
+                        <Label Text="Duration Distribution" FontAttributes="Bold" />
+                        <Grid x:Name="BarChartContainer" 
+                              RowDefinitions="Auto, Auto, Auto, Auto, Auto"
+                              ColumnDefinitions="Auto, *"
+                              RowSpacing="5"
+                              ColumnSpacing="10"
+                              Margin="0,10,0,0">
+                            <!-- Will be populated programmatically -->
+                        </Grid>
+                    </StackLayout>
+                </Frame>
+            </StackLayout>
+        </ScrollView>
+
+        <!-- Loading Overlay -->
+        <Grid Grid.RowSpan="2" IsVisible="{Binding IsLoading}" BackgroundColor="#80000000">
+            <StackLayout VerticalOptions="Center" HorizontalOptions="Center">
+                <ActivityIndicator IsRunning="True" Color="White" />
+                <Label Text="Processing Data..." TextColor="White" Margin="0,10,0,0" />
+            </StackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>
