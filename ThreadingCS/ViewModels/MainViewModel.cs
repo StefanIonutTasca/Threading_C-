@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -26,6 +27,12 @@ namespace ThreadingCS.ViewModels
         private double _progressValue;
         private double _maxDuration = 60;
         private double _maxDistance = 10;
+
+        // Destination coordinate backing fields
+        private double _destinationLatitude = 51.505983;
+        private double _destinationLongitude = -0.017931; // Defaults to example values
+        private bool _isDestinationValid = true;
+
 
         public ObservableCollection<TransportRoute> Routes { get; } = new();
         public ObservableCollection<TransportRoute> FilteredRoutes { get; } = new();
@@ -103,6 +110,58 @@ namespace ThreadingCS.ViewModels
             }
         }
 
+        public double DestinationLatitude
+        {
+            get => _destinationLatitude;
+            set
+            {
+                if (_destinationLatitude != value)
+                {
+                    _destinationLatitude = value;
+                    OnPropertyChanged();
+                    ValidateDestinationCoordinates();
+                }
+            }
+        }
+
+        public double DestinationLongitude
+        {
+            get => _destinationLongitude;
+            set
+            {
+                if (_destinationLongitude != value)
+                {
+                    _destinationLongitude = value;
+                    OnPropertyChanged();
+                    ValidateDestinationCoordinates();
+                }
+            }
+        }
+
+        public bool IsDestinationValid
+        {
+            get => _isDestinationValid;
+            private set
+            {
+                if (_isDestinationValid != value)
+                {
+                    _isDestinationValid = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        private void ValidateDestinationCoordinates()
+        {
+            bool valid = _destinationLatitude >= -90 && _destinationLatitude <= 90 &&
+                         _destinationLongitude >= -180 && _destinationLongitude <= 180;
+            IsDestinationValid = valid;
+            if (!valid)
+            {
+                StatusMessage = "Invalid destination coordinates. Latitude must be between -90 and 90, longitude between -180 and 180.";
+            }
+        }
+
         public MainViewModel()
         {
             _apiService = new TransportApiService();
@@ -112,46 +171,71 @@ namespace ThreadingCS.ViewModels
 
         public async Task InitializeAsync()
         {
+            Debug.WriteLine("[Init] Entered InitializeAsync");
             IsLoading = true;
             StatusMessage = "Loading data...";
+            Debug.WriteLine("[Init] Set IsLoading and StatusMessage");
+
+            // Fixed origin coordinates
+            double originLat = 51.507198;
+            double originLng = -0.136512;
+
+            // Validate destination before API call
+            ValidateDestinationCoordinates();
+            if (!IsDestinationValid)
+            {
+                IsLoading = false;
+                Debug.WriteLine("[Init] Invalid destination coordinates. Aborting API call.");
+                return;
+            }
 
             try
             {
-                // Fetch sample routes (API call)
-                var response = await _apiService.GetRoutesAsync(51.507198, -0.136512, 51.505983, -0.017931);
-                
-                if (response.IsSuccess && response.Routes.Any())
+                Debug.WriteLine($"[Init] Calling GetRoutesAsync with origin=({originLat},{originLng}), dest=({_destinationLatitude},{_destinationLongitude})");
+                var response = await _apiService.GetRoutesAsync(originLat, originLng, _destinationLatitude, _destinationLongitude);
+                Debug.WriteLine("[Init] GetRoutesAsync returned");
+
+                // Always reload from DB to ensure UI shows what is actually stored
+                var dbRoutes = await new Services.DatabaseService().GetAllRoutesAsync();
+                MainThread.BeginInvokeOnMainThread(() => {
+                    Routes.Clear();
+                    foreach (var route in dbRoutes)
+                    {
+                        Routes.Add(route);
+                    }
+                });
+
+                if (dbRoutes.Any())
                 {
-                    MainThread.BeginInvokeOnMainThread(() => {
-                        Routes.Clear();
-                        foreach (var route in response.Routes)
-                        {
-                            Routes.Add(route);
-                        }
-                    });
-                    
-                    StatusMessage = $"Loaded {Routes.Count} routes";
+                    StatusMessage = $"Loaded {dbRoutes.Count} routes from database";
+                    Debug.WriteLine($"[Init] Loaded {Routes.Count} routes");
                 }
                 else
                 {
                     StatusMessage = "Failed to load routes: " + response.ErrorMessage;
+                    Debug.WriteLine($"[Init] Failed to load routes: {response.ErrorMessage}");
                 }
 
-                // Generate large dataset in background thread for PLINQ demonstrations
-                await Task.Run(() =>
+                Debug.WriteLine("[Init] Starting large dataset generation");
+                await Task.Run(async () =>
                 {
+                    Debug.WriteLine("[Init] Inside Task.Run: Generating large dataset...");
                     StatusMessage = "Generating large dataset...";
-                    _largeDataset = _apiService.GenerateLargeDataset(100000);
+                    _largeDataset = await _apiService.GenerateLargeDataset(100000);
                     StatusMessage = $"Generated {_largeDataset.Count:N0} records";
+                    Debug.WriteLine($"[Init] Large dataset generated: {_largeDataset.Count} records");
                 });
+                Debug.WriteLine("[Init] Finished large dataset generation");
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
+                Debug.WriteLine($"[Init] Exception: {ex}");
             }
             finally
             {
                 IsLoading = false;
+                Debug.WriteLine("[Init] Exiting InitializeAsync, IsLoading set to false");
             }
         }
 

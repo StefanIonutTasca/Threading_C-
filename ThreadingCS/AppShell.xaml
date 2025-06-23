@@ -29,5 +29,11 @@
                 ContentTemplate="{DataTemplate views:GraphsPage}"
                 Route="GraphsPage" />
         </Tab>
+        <Tab Title="Database" Icon="database.png">
+            <ShellContent
+                Title="Database"
+                ContentTemplate="{DataTemplate views:DatabasePage}"
+                Route="DatabasePage" />
+        </Tab>
     </TabBar>
 </Shell>

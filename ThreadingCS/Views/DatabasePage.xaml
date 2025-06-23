@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ThreadingCS.ViewModels"
+             x:Class="ThreadingCS.Views.DatabasePage"
+             Title="Database Browser">
+    <ContentPage.BindingContext>
+        <vm:DatabaseViewModel />
+    </ContentPage.BindingContext>
+    <VerticalStackLayout Spacing="10" Padding="20">
+        <Label Text="All Routes in Database" FontAttributes="Bold" FontSize="22" />
+        <CollectionView ItemsSource="{Binding Routes}" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame Margin="4" Padding="8" BorderColor="Gray" CornerRadius="8">
+                        <VerticalStackLayout>
+                            <Label Text="{Binding RouteId}" FontAttributes="Bold" />
+                            <Label Text="{Binding RouteName}" />
+                            <Label Text="{Binding AgencyName}" />
+                            <Label Text="{Binding Duration, StringFormat='Duration: {0} min'}" />
+                            <Label Text="{Binding Distance, StringFormat='Distance: {0:F2} km'}" />
+                        </VerticalStackLayout>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+        <Button Text="Refresh" Command="{Binding RefreshCommand}" />
+    </VerticalStackLayout>
+</ContentPage>

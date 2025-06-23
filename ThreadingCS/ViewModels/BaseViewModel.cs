@@ -9,6 +9,13 @@ namespace ThreadingCS.ViewModels
     /// </summary>
     public class BaseViewModel : INotifyPropertyChanged
     {
+        private bool _isBusy;
+        public bool IsBusy
+        {
+            get => _isBusy;
+            set => SetProperty(ref _isBusy, value);
+        }
+
         /// <summary>
         /// Event for property changed notifications
         /// </summary>

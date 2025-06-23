@@ -14,6 +14,9 @@ namespace ThreadingCS
             BindingContext = _viewModel;
         }
 
+        // Optionally expose MainViewModel for code-behind access
+        public MainViewModel ViewModel => BindingContext as MainViewModel;
+
         protected override async void OnAppearing()
         {
             base.OnAppearing();

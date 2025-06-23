@@ -159,94 +159,103 @@ namespace ThreadingCS.ViewModels
         
         private async Task GenerateSimulatedRoutesAsync()
         {
-            IsLoading = true;
-            StatusMessage = "Loading transport data...";
-            
             try
             {
-                // Clear existing routes on UI thread
-                await MainThread.InvokeOnMainThreadAsync(() => ActiveRoutes.Clear());
+                // Clear active routes on UI thread
+                MainThread.BeginInvokeOnMainThread(() => { ActiveRoutes.Clear(); });
                 
-                // Try to fetch data from the API
-                Debug.WriteLine("Fetching routes from API...");
-                StatusMessage = "Fetching real-time data...";
+                // First try to get real routes from the API
+                StatusMessage = "Fetching real-time transport data...";
                 
                 // Define London area coordinates for the API request
-                var originLat = 51.5074;
-                var originLng = -0.1278;
-                var destLat = 51.5113;
-                var destLng = -0.1198;
+                var originLat = 51.507198;
+                var originLng = -0.136512;
+                var destLat = 51.505983;
+                var destLng = -0.017931;
                 
+                // Call the API service to fetch real routes
                 var apiResponse = await _apiService.GetRoutesAsync(originLat, originLng, destLat, destLng);
                 
-                // Check if we have valid routes (either from API or fallback sample data)
-                var routesToProcess = (apiResponse.Routes?.Count > 0) ? 
-                    apiResponse.Routes : 
-                    _apiService.GenerateSampleRoutes(10);
-                
-                if (!string.IsNullOrEmpty(apiResponse.ErrorMessage))
+                if (apiResponse.IsSuccess && apiResponse.Routes.Count > 0)
                 {
-                    Debug.WriteLine($"API Warning: {apiResponse.ErrorMessage}");
-                    StatusMessage = "Using sample data";
+                    // Process the real API data using PLINQ
+                    var processedRoutes = apiResponse.Routes
+                        .AsParallel()
+                        .WithDegreeOfParallelism(Environment.ProcessorCount)
+                        .Select(route => {
+                            // Ensure route has a color
+                            if (string.IsNullOrEmpty(route.Color))
+                            {
+                                // Generate a color based on route ID for consistency
+                                var hash = route.RouteId.GetHashCode();
+                                route.Color = $"#{Math.Abs(hash) % 0xFFFFFF:X6}";
+                            }
+                            return route;
+                        })
+                        .ToList();
+                    
+                    // Add routes to the observable collection on UI thread
+                    foreach (var route in processedRoutes)
+                    {
+                        MainThread.BeginInvokeOnMainThread(() => { ActiveRoutes.Add(route); });
+                    }
+                    
+                    StatusMessage = $"Loaded {processedRoutes.Count} real routes from API";
+                    return;
                 }
                 else
                 {
-                    StatusMessage = $"Loaded {routesToProcess.Count} routes";
+                    StatusMessage = "Could not fetch real data. Using simulated data instead.";
                 }
-                
-                // Process routes in parallel using PLINQ
-                var processedRoutes = routesToProcess
-                    .AsParallel()
-                    .AsOrdered()
-                    .Select((route, index) =>
-                    {
-                        // Update progress
-                        var progress = (double)(index + 1) / routesToProcess.Count;
-                        MainThread.BeginInvokeOnMainThread(() => MapLoadingProgress = progress);
-                        
-                        // Ensure route has a color
-                        if (string.IsNullOrEmpty(route.Color))
-                        {
-                            // Generate a color based on route ID for consistency
-                            var hash = route.RouteId.GetHashCode();
-                            route.Color = $"#{Math.Abs(hash) % 0xFFFFFF:X6}";
-                        }
-                        
-                        return route;
-                    })
-                    .ToList();
-                
-                // Add routes to the collection on the main thread
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    foreach (var route in processedRoutes)
-                    {
-                        ActiveRoutes.Add(route);
-                    }
-                });
-                
-                Debug.WriteLine($"Successfully processed {processedRoutes.Count} routes");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error in GenerateSimulatedRoutesAsync: {ex.Message}");
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}");
-                
-                // Fallback to sample data on error
-                StatusMessage = "Error loading data. Using sample data.";
-                var sampleRoutes = _apiService.GenerateSampleRoutes(10);
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    foreach (var route in sampleRoutes)
-                    {
-                        ActiveRoutes.Add(route);
-                    }
-                });
+                Debug.WriteLine($"API Error: {ex.Message}");
+                StatusMessage = "API Error. Falling back to simulated data.";
             }
-            finally
+            
+            // If API fails, fall back to simulated data
+            await Task.Run(() =>
             {
-                IsLoading = false;
-            }
+                // Generate simulated routes with vehicles
+                var routes = new List<TransportRoute>();
+                for (int i = 1; i <= 10; i++)
+                {
+                    var route = new TransportRoute
+                    {
+                        RouteId = $"R{i}",
+                        RouteName = $"Route {i}",
+                        Color = i % 3 == 0 ? "#FF0000" : (i % 3 == 1 ? "#0000FF" : "#00FF00"),
+                        Vehicles = new List<Vehicle>()
+                    };
+                    
+                    // Generate vehicles for this route using PLINQ
+                    var vehicles = Enumerable.Range(1, i * 2)
+                        .AsParallel()
+                        .WithDegreeOfParallelism(Environment.ProcessorCount)
+                        .Select(j =>
+                        {
+                            return new Vehicle
+                            {
+                                VehicleId = $"V{i}-{j}",
+                                RouteId = route.RouteId,
+                                Latitude = 51.5 + ((double)i / 100.0),
+                                Longitude = -0.1 + ((double)j / 100.0),
+                                Bearing = (i * 30 + j * 10) % 360,
+                                LastUpdated = DateTime.Now
+                            };
+                        })
+                        .ToList();
+                    
+                    route.Vehicles = vehicles;
+                    routes.Add(route);
+                    
+                    // Add to observable collection on UI thread
+                    MainThread.BeginInvokeOnMainThread(() => { ActiveRoutes.Add(route); });
+                }
+                
+                return routes;
+            });
         }
         
         private async Task GenerateAndUpdateVehiclesAsync(CancellationToken token)

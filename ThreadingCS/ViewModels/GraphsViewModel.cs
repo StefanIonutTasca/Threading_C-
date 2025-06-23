@@ -151,7 +151,7 @@ namespace ThreadingCS.ViewModels
                 await Task.Run(async () =>
                 {
                     // Generate a large dataset for visualization
-                    _routeData = _apiService.GenerateLargeDataset(100000);
+                    _routeData = await _apiService.GenerateLargeDataset(100000);
                     ProcessedRoutes = _routeData.Count;
                     ProcessingProgress = 0.4;
                     

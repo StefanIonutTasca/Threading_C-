@@ -4,5 +4,37 @@
         <name>ThreadingCS</name>
     </assembly>
     <members>
+        <member name="T:ThreadingCS.ViewModels.BaseViewModel">
+            <summary>
+            Base view model implementing INotifyPropertyChanged for all view models
+            </summary>
+        </member>
+        <member name="E:ThreadingCS.ViewModels.BaseViewModel.PropertyChanged">
+            <summary>
+            Event for property changed notifications
+            </summary>
+        </member>
+        <member name="M:ThreadingCS.ViewModels.BaseViewModel.OnPropertyChanged(System.String)">
+            <summary>
+            Method to raise PropertyChanged event for a property
+            </summary>
+            <param name="propertyName">Name of the property that changed</param>
+        </member>
+        <member name="M:ThreadingCS.ViewModels.BaseViewModel.SetProperty``1(``0@,``0,System.String)">
+            <summary>
+            Helper method to set property value and raise PropertyChanged event if value changed
+            </summary>
+            <typeparam name="T">Type of the property</typeparam>
+            <param name="storage">Reference to the backing field</param>
+            <param name="value">New value to set</param>
+            <param name="propertyName">Name of the property (automatically provided by compiler)</param>
+            <returns>True if value was changed, false otherwise</returns>
+        </member>
+        <member name="M:ThreadingCS.ViewModels.DatabaseViewModel.LoadRoutesAsync">
+            <summary>
+            Loads all routes from the database and processes them in parallel (PLINQ) before updating the UI.
+            This demonstrates multi-core/thread pool usage per the rubric.
+            </summary>
+        </member>
     </members>
 </doc>

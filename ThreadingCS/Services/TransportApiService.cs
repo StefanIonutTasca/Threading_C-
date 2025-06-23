@@ -15,162 +15,161 @@ namespace ThreadingCS.Services
         private readonly HttpClient _client;
         private const string ApiKey = "d9b31e3854msh332940292b70607p17060fjsn98ba936d56cb";
         private const string ApiHost = "busmaps-gtfs-api.p.rapidapi.com";
+        private readonly DatabaseService _databaseService;
         
         public TransportApiService()
         {
             _client = new HttpClient();
+            _databaseService = new DatabaseService();
         }
 
-        public async Task<TransportApiResponse> GetRoutesAsync(double originLat, double originLng, double destLat, double destLng)
+        public async Task<TransportApiResponse> GetRoutesAsync(double originLat, double originLng, double destLat, double destLng, bool useCache = true)
         {
             try
             {
-                Debug.WriteLine("Attempting to fetch routes from API...");
-                
-                var request = new HttpRequestMessage
+                Debug.WriteLine("[API] Attempting to fetch routes from RapidAPI...");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"https://busmaps-gtfs-api.p.rapidapi.com/routes?origin={originLat}%2C{originLng}&destination={destLat}%2C{destLng}&transfers=1");
+                request.Headers.Add("x-rapidapi-key", ApiKey);
+                request.Headers.Add("x-rapidapi-host", ApiHost);
+                request.Headers.Add("Accept", "application/json");
+                request.Headers.Add("User-Agent", "ThreadingCS-MAUI-App");
+                // Log request details
+                Debug.WriteLine($"[API REQUEST] {request.Method} {request.RequestUri}");
+                foreach (var header in request.Headers)
                 {
-                    Method = HttpMethod.Get,
-                    RequestUri = new Uri($"https://busmaps-gtfs-api.p.rapidapi.com/routes?origin={originLat}%2C{originLng}&destination={destLat}%2C{destLng}&departureTime={DateTime.Now:yyyy-MM-ddTHH%3Amm%3Ass}&arrivalTime={DateTime.Now.AddHours(1):yyyy-MM-ddTHH%3Amm%3Ass}&transfers=1"),
-                    Headers =
-                    {
-                        { "x-rapidapi-key", ApiKey },
-                        { "x-rapidapi-host", ApiHost },
-                    },
-                };
+                    Debug.WriteLine($"[API REQUEST HEADER] {header.Key}: {string.Join(", ", header.Value)}");
+                }
 
-                using (var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false))
+                var response = await _client.SendAsync(request);
+                Debug.WriteLine($"[API RESPONSE] Status: {(int)response.StatusCode} {response.StatusCode}");
+                var body = await response.Content.ReadAsStringAsync();
+                Debug.WriteLine($"[API RESPONSE BODY] {body}");
+                response.EnsureSuccessStatusCode();
+
+                using var jsonDoc = JsonDocument.Parse(body);
+                var root = jsonDoc.RootElement;
+
+                var apiRoutes = new List<TransportRoute>();
+                if (root.TryGetProperty("routes", out var routesArray))
                 {
-                    var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                    
-                    Debug.WriteLine($"API Status Code: {response.StatusCode}");
-                    Debug.WriteLine($"API Response: {body}");
-
-                    if (!response.IsSuccessStatusCode)
+                    foreach (var routeElement in routesArray.EnumerateArray())
                     {
-                        var errorMsg = $"API Error: {response.StatusCode} - {response.ReasonPhrase}";
-                        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                        var route = new TransportRoute
                         {
-                            errorMsg += "\nAuthentication failed. Please check your API key and subscription.";
-                        }
-                        else if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
+                            RouteId = routeElement.TryGetProperty("id", out var routeId) ? routeId.GetString() : $"Route-{Guid.NewGuid()}",
+                            RouteName = routeElement.TryGetProperty("id", out var routeName) ? routeName.GetString() : "Unknown Route",
+                            AgencyName = "Unknown Agency", // No direct field in new API, fallback
+                            Color = "#FF0000", // No direct field, fallback
+                            Duration = routeElement.TryGetProperty("duration", out var duration) ? duration.GetDouble() : 0,
+                            Stops = new List<TransportStop>(),
+                            Vehicles = new List<Vehicle>()
+                        };
+                        // Parse sections as stops
+                        if (routeElement.TryGetProperty("sections", out var sectionsArray))
                         {
-                            errorMsg += "\nThe API server encountered an error. Falling back to sample data.";
-                            Debug.WriteLine(errorMsg);
-                            return new TransportApiResponse
+                            foreach (var sectionElement in sectionsArray.EnumerateArray())
                             {
-                                IsSuccess = false,
-                                ErrorMessage = errorMsg,
-                                Routes = GenerateSampleRoutes(10),
-                                TotalCount = 10
-                            };
-                        }
-                        Debug.WriteLine(errorMsg);
-                        throw new HttpRequestException(errorMsg, null, response.StatusCode);
-                    }
-
-                    try
-                    {
-                        // Parse the API response using System.Text.Json
-                        using var jsonDoc = JsonDocument.Parse(body);
-                        var root = jsonDoc.RootElement;
-                        
-                        // Extract routes from the API response
-                        var apiRoutes = new List<TransportRoute>();
-                        
-                        if (root.TryGetProperty("routes", out var routesArray))
-                        {
-                            foreach (var routeElement in routesArray.EnumerateArray())
-                            {
-                                var route = new TransportRoute
+                                // Departure stop
+                                if (sectionElement.TryGetProperty("departure", out var departureObj) &&
+                                    departureObj.TryGetProperty("place", out var depPlace) &&
+                                    depPlace.TryGetProperty("location", out var depLoc))
                                 {
-                                    RouteId = routeElement.TryGetProperty("route_id", out var routeId) ? routeId.GetString() : $"Route-{Guid.NewGuid()}",
-                                    RouteName = routeElement.TryGetProperty("route_short_name", out var routeName) ? routeName.GetString() : "Unknown Route",
-                                    AgencyName = routeElement.TryGetProperty("agency_name", out var agencyName) ? agencyName.GetString() : "Transit Agency",
-                                    Color = routeElement.TryGetProperty("route_color", out var routeColor) ? $"#{routeColor.GetString()}" : "#FF0000"
-                                };
-                                
-                                // Add stops if available
-                                if (routeElement.TryGetProperty("stops", out var stopsArray))
-                                {
-                                    foreach (var stopElement in stopsArray.EnumerateArray())
+                                    var stop = new TransportStop
                                     {
-                                        var stop = new TransportStop
-                                        {
-                                            StopId = stopElement.TryGetProperty("stop_id", out var stopId) ? stopId.GetString() : $"Stop-{Guid.NewGuid()}",
-                                            StopName = stopElement.TryGetProperty("stop_name", out var stopName) ? stopName.GetString() : "Unknown Stop",
-                                        };
-                                        
-                                        if (stopElement.TryGetProperty("stop_lat", out var stopLat) && 
-                                            stopElement.TryGetProperty("stop_lon", out var stopLon))
-                                        {
-                                            stop.Latitude = stopLat.GetDouble();
-                                            stop.Longitude = stopLon.GetDouble();
-                                        }
-                                        
-                                        route.Stops.Add(stop);
-                                    }
-                                }
-                                
-                                // Add vehicles (since the API might not provide real-time vehicle data, we'll simulate this)
-                                var random = new Random();
-                                int vehicleCount = random.Next(1, 5);
-                                
-                                for (int i = 0; i < vehicleCount; i++)
-                                {
-                                    // Create vehicle positions along the route's stops
-                                    var stopIdx = i % Math.Max(1, route.Stops.Count);
-                                    var baseStop = route.Stops.Count > 0 ? route.Stops[stopIdx] : 
-                                        new TransportStop { Latitude = originLat, Longitude = originLng };
-                                    
-                                    var vehicle = new Vehicle
-                                    {
-                                        VehicleId = $"{route.RouteId}-V{i}",
-                                        RouteId = route.RouteId,
-                                        Latitude = baseStop.Latitude + (random.NextDouble() - 0.5) * 0.005,
-                                        Longitude = baseStop.Longitude + (random.NextDouble() - 0.5) * 0.005,
-                                        Bearing = random.Next(0, 360),
-                                        LastUpdated = DateTime.Now
+                                        StopId = sectionElement.TryGetProperty("id", out var sectionId) ? sectionId.GetString() + "-dep" : $"Stop-{Guid.NewGuid()}",
+                                        StopName = depPlace.TryGetProperty("name", out var depName) ? depName.GetString() : "",
+                                        Latitude = depLoc.TryGetProperty("lat", out var lat) ? lat.GetDouble() : 0.0,
+                                        Longitude = depLoc.TryGetProperty("lng", out var lng) ? lng.GetDouble() : 0.0,
+                                        EstimatedArrival = departureObj.TryGetProperty("time", out var depTime) && DateTime.TryParse(depTime.GetString(), out var dtDep) ? dtDep : DateTime.Now
                                     };
-                                    
-                                    route.Vehicles.Add(vehicle);
+                                    route.Stops.Add(stop);
+                                }
+                                // Arrival stop
+                                if (sectionElement.TryGetProperty("arrival", out var arrivalObj) &&
+                                    arrivalObj.TryGetProperty("place", out var arrPlace) &&
+                                    arrPlace.TryGetProperty("location", out var arrLoc))
+                                {
+                                    var stop = new TransportStop
+                                    {
+                                        StopId = sectionElement.TryGetProperty("id", out var sectionId) ? sectionId.GetString() + "-arr" : $"Stop-{Guid.NewGuid()}",
+                                        StopName = arrPlace.TryGetProperty("name", out var arrName) ? arrName.GetString() : "",
+                                        Latitude = arrLoc.TryGetProperty("lat", out var lat) ? lat.GetDouble() : 0.0,
+                                        Longitude = arrLoc.TryGetProperty("lng", out var lng) ? lng.GetDouble() : 0.0,
+                                        EstimatedArrival = arrivalObj.TryGetProperty("time", out var arrTime) && DateTime.TryParse(arrTime.GetString(), out var dtArr) ? dtArr : DateTime.Now
+                                    };
+                                    route.Stops.Add(stop);
                                 }
                             }
-                            
-                            return new TransportApiResponse
-                            {
-                                IsSuccess = true,
-                                Routes = apiRoutes,
-                                TotalCount = apiRoutes.Count
-                            };
                         }
+                        // Simulate vehicles for now (API does not provide vehicles)
+                        var random = new Random();
+                        int vehicleCount = random.Next(1, 3);
+                        for (int i = 0; i < vehicleCount; i++)
+                        {
+                            var stopIdx = i % Math.Max(1, route.Stops.Count);
+                            var baseStop = route.Stops.Count > 0 ? route.Stops[stopIdx] : new TransportStop { Latitude = 0, Longitude = 0 };
+                            var vehicle = new Vehicle
+                            {
+                                VehicleId = $"{route.RouteId}-V{i}",
+                                RouteId = route.RouteId,
+                                Latitude = baseStop.Latitude + (random.NextDouble() - 0.5) * 0.005,
+                                Longitude = baseStop.Longitude + (random.NextDouble() - 0.5) * 0.005,
+                                Bearing = random.Next(0, 360),
+                                LastUpdated = DateTime.Now
+                            };
+                            route.Vehicles.Add(vehicle);
+                        }
+                        apiRoutes.Add(route);
                     }
-                    catch (JsonException jsonEx)
-                    {
-                        Debug.WriteLine($"JSON parsing error: {jsonEx.Message}");
-                        Debug.WriteLine($"JSON parsing error details: {jsonEx.StackTrace}");
-                        throw new HttpRequestException("Failed to parse API response", jsonEx);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error processing API response: {ex.Message}");
-                        Debug.WriteLine($"Error details: {ex.StackTrace}");
-                        throw new HttpRequestException("Failed to process API response", ex);
-                    }
-                    
-                    // This should never be reached due to the throws above
-                    throw new InvalidOperationException("Unexpected error in API response processing");
                 }
+                if (apiRoutes.Count > 0)
+                {
+                    await _databaseService.SaveRoutesAsync(apiRoutes);
+                }
+                Debug.WriteLine($"[API] Successfully fetched and cached {apiRoutes.Count} routes from API");
+                return new TransportApiResponse
+                {
+                    IsSuccess = true,
+                    Routes = apiRoutes,
+                    TotalCount = apiRoutes.Count,
+                    ErrorMessage = null
+                };
             }
-            catch (Exception ex)
+            catch (Exception apiEx)
             {
-                Console.WriteLine($"API request error: {ex.Message}");
+                Debug.WriteLine($"[API] Error fetching from RapidAPI: {apiEx.Message}. Trying to load from cache...");
+                try
+                {
+                    var cachedRoutes = await _databaseService.GetAllRoutesAsync();
+                    if (cachedRoutes.Count > 0)
+                    {
+                        Debug.WriteLine($"[API] Returning {cachedRoutes.Count} cached routes after API failure");
+                        return new TransportApiResponse
+                        {
+                            IsSuccess = true,
+                            Routes = cachedRoutes,
+                            TotalCount = cachedRoutes.Count,
+                            ErrorMessage = "Loaded from cache due to API error."
+                        };
+                    }
+                }
+                catch (Exception cacheEx)
+                {
+                    Debug.WriteLine($"[API] Error loading from cache: {cacheEx.Message}. Using mock data.");
+                }
+                var sampleRoutes = GenerateSampleRoutes(25);
+                await _databaseService.SaveRoutesAsync(sampleRoutes);
                 return new TransportApiResponse
                 {
                     IsSuccess = false,
-                    ErrorMessage = ex.Message
+                    Routes = sampleRoutes,
+                    TotalCount = sampleRoutes.Count,
+                    ErrorMessage = "API and cache failed. Using mock data."
                 };
             }
         }
+                
+
 
         // Generate sample data for testing
         private List<TransportRoute> GenerateSampleRoutes(int count)
@@ -226,11 +225,29 @@ namespace ThreadingCS.Services
         }
 
         // Method to generate large dataset for PLINQ demonstration
-        public List<TransportRoute> GenerateLargeDataset(int count = 100000)
+        public async Task<List<TransportRoute>> GenerateLargeDataset(int count = 100000, bool saveToDatabase = true)
         {
+            Debug.WriteLine($"[Dataset] Entered GenerateLargeDataset with count={count}, saveToDatabase={saveToDatabase}");
+            try
+            {
+                Debug.WriteLine("[Dataset] Checking for existing data in DB via GetAllRoutesAsync");
+                var existingData = await _databaseService.GetAllRoutesAsync();
+                Debug.WriteLine($"[Dataset] Got {existingData.Count} routes from DB");
+                if (existingData.Count >= count)
+                {
+                    Debug.WriteLine($"[Dataset] Found {existingData.Count} routes in database, returning those instead of generating new ones");
+                    return existingData;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Dataset] Error checking database for large dataset: {ex.Message}");
+            }
+
             var routes = new List<TransportRoute>();
             var random = new Random();
 
+            Debug.WriteLine($"[Dataset] Generating {count} new routes");
             for (int i = 0; i < count; i++)
             {
                 var route = new TransportRoute
@@ -239,12 +256,42 @@ namespace ThreadingCS.Services
                     RouteName = $"Bus Line {random.Next(1, 500)}",
                     AgencyName = $"Transport Agency {random.Next(1, 20)}",
                     Duration = random.Next(5, 180),
-                    Distance = random.Next(1, 50) + random.NextDouble()
+                    Distance = random.Next(1, 50) + random.NextDouble(),
+                    Vehicles = new List<Vehicle>()
                 };
+
+                int vehicleCount = random.Next(1, 4);
+                for (int k = 0; k < vehicleCount; k++)
+                {
+                    route.Vehicles.Add(new Vehicle
+                    {
+                        VehicleId = $"Vehicle{i}-{k}",
+                        RouteId = route.RouteId,
+                        Latitude = 51.5 + (random.NextDouble() * 0.1),
+                        Longitude = -0.1 + (random.NextDouble() * 0.1),
+                        Bearing = random.Next(0, 360),
+                        LastUpdated = DateTime.Now.AddSeconds(-random.Next(10, 300))
+                    });
+                }
 
                 routes.Add(route);
             }
 
+            if (saveToDatabase)
+            {
+                Debug.WriteLine($"[Dataset] Saving {routes.Count} routes to DB via SaveLargeDatasetAsync");
+                try
+                {
+                    await _databaseService.SaveLargeDatasetAsync(routes);
+                    Debug.WriteLine($"[Dataset] Finished saving large dataset to DB");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[Dataset] Error saving large dataset to database: {ex.Message}");
+                }
+            }
+
+            Debug.WriteLine($"[Dataset] Returning generated dataset with {routes.Count} routes");
             return routes;
         }
     }
