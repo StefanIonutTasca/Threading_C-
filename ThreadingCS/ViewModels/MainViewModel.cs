@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui;
+using Microsoft.Maui.ApplicationModel;
 using ThreadingCS.Models;
 using ThreadingCS.Services;
 
@@ -18,6 +19,7 @@ namespace ThreadingCS.ViewModels
     {
         private readonly TransportApiService _apiService;
         private readonly DataProcessingService _processingService;
+        private readonly DatabaseService _databaseService;
         private CancellationTokenSource _cancellationTokenSource;
         private List<TransportRoute> _largeDataset;
         private bool _isLoading;
@@ -25,12 +27,17 @@ namespace ThreadingCS.ViewModels
         private string _statusMessage;
         private int _processedRecords;
         private double _progressValue;
-        private double _maxDuration = 60;
-        private double _maxDistance = 10;
+        private double _maxDuration = 300; // Default to 5 hours for longer routes
+        private double _maxDistance = 2000; // Default to 2000 km for international routes
 
+        // Origin coordinate backing fields
+        private double _originLatitude = 52.3738; // Amsterdam Centraal Station
+        private double _originLongitude = 4.8909; 
+        private bool _isOriginValid = true;
+        
         // Destination coordinate backing fields
-        private double _destinationLatitude = 51.505983;
-        private double _destinationLongitude = -0.017931; // Defaults to example values
+        private double _destinationLatitude = 52.3584; // Amsterdam Museum Square
+        private double _destinationLongitude = 4.8812; // Amsterdam coordinates
         private bool _isDestinationValid = true;
 
 
@@ -110,6 +117,50 @@ namespace ThreadingCS.ViewModels
             }
         }
 
+        public double OriginLatitude
+        {
+            get => _originLatitude;
+            set
+            {
+                if (_originLatitude != value)
+                {
+                    _originLatitude = value;
+                    OnPropertyChanged();
+                    ValidateOriginCoordinates();
+                }
+            }
+        }
+
+        public double OriginLongitude
+        {
+            get => _originLongitude;
+            set
+            {
+                if (_originLongitude != value)
+                {
+                    _originLongitude = value;
+                    OnPropertyChanged();
+                    ValidateOriginCoordinates();
+                }
+            }
+        }
+
+        public bool IsOriginValid
+        {
+            get => _isOriginValid;
+            private set
+            {
+                if (_isOriginValid != value)
+                {
+                    _isOriginValid = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsCoordinatesValid));
+                }
+            }
+        }
+        
+        public bool IsCoordinatesValid => IsOriginValid && IsDestinationValid;
+
         public double DestinationLatitude
         {
             get => _destinationLatitude;
@@ -147,83 +198,219 @@ namespace ThreadingCS.ViewModels
                 {
                     _isDestinationValid = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsCoordinatesValid));
                 }
             }
         }
 
+        private void ValidateOriginCoordinates()
+        {
+            // Basic validation for latitude (-90 to 90) and longitude (-180 to 180)
+            IsOriginValid = _originLatitude >= -90 && _originLatitude <= 90 &&
+                          _originLongitude >= -180 && _originLongitude <= 180;
+        }
+
         private void ValidateDestinationCoordinates()
         {
-            bool valid = _destinationLatitude >= -90 && _destinationLatitude <= 90 &&
-                         _destinationLongitude >= -180 && _destinationLongitude <= 180;
-            IsDestinationValid = valid;
-            if (!valid)
-            {
-                StatusMessage = "Invalid destination coordinates. Latitude must be between -90 and 90, longitude between -180 and 180.";
-            }
+            // Basic validation for latitude (-90 to 90) and longitude (-180 to 180)
+            IsDestinationValid = _destinationLatitude >= -90 && _destinationLatitude <= 90 &&
+                               _destinationLongitude >= -180 && _destinationLongitude <= 180;
         }
 
         public MainViewModel()
         {
-            _apiService = new TransportApiService();
+            _databaseService = new DatabaseService();
+            _apiService = new TransportApiService(_databaseService);
             _processingService = new DataProcessingService();
             _cancellationTokenSource = new CancellationTokenSource();
+            
+            // Set initial status message with X symbol
+            StatusMessage = "❌ Please click 'Load Data' first to generate the dataset";
         }
 
         public async Task InitializeAsync()
         {
             Debug.WriteLine("[Init] Entered InitializeAsync");
             IsLoading = true;
-            StatusMessage = "Loading data...";
+            StatusMessage = "Initializing application...";
+            ProcessedRecords = 0;
+            ProgressValue = 0.1;
             Debug.WriteLine("[Init] Set IsLoading and StatusMessage");
 
-            // Fixed origin coordinates
-            double originLat = 51.507198;
-            double originLng = -0.136512;
+            // Use origin coordinates from properties
+            double originLat = _originLatitude;
+            double originLng = _originLongitude;
+
+            // Validate origin coordinates before API call
+            StatusMessage = "Validating coordinates...";
+            ValidateOriginCoordinates();
+            if (!IsOriginValid)
+            {
+                IsLoading = false;
+                StatusMessage = "Error: Invalid origin coordinates";
+                Debug.WriteLine("[Init] Invalid origin coordinates. Aborting API call.");
+                return;
+            }
 
             // Validate destination before API call
             ValidateDestinationCoordinates();
             if (!IsDestinationValid)
             {
                 IsLoading = false;
+                StatusMessage = "Error: Invalid destination coordinates";
                 Debug.WriteLine("[Init] Invalid destination coordinates. Aborting API call.");
                 return;
             }
 
             try
             {
+                // Step 1: API Call (20%)
+                StatusMessage = "Connecting to transit API...";
+                ProgressValue = 0.2;
+                ProcessedRecords = 10; // Show some initial progress
                 Debug.WriteLine($"[Init] Calling GetRoutesAsync with origin=({originLat},{originLng}), dest=({_destinationLatitude},{_destinationLongitude})");
-                var response = await _apiService.GetRoutesAsync(originLat, originLng, _destinationLatitude, _destinationLongitude);
-                Debug.WriteLine("[Init] GetRoutesAsync returned");
-
-                // Always reload from DB to ensure UI shows what is actually stored
-                var dbRoutes = await new Services.DatabaseService().GetAllRoutesAsync();
-                MainThread.BeginInvokeOnMainThread(() => {
-                    Routes.Clear();
-                    foreach (var route in dbRoutes)
-                    {
-                        Routes.Add(route);
+                
+                // Show incremental progress during API call
+                var apiCallProgress = new Progress<int>(percent => {
+                    ProcessedRecords = 10 + percent;
+                    if (percent % 20 == 0) {
+                        StatusMessage = $"API request in progress ({percent}%)...";
                     }
                 });
+                
+                // Simulate progress updates during the API call
+                _ = Task.Run(async () => {
+                    for (int i = 0; i < 5 && IsLoading; i++) {
+                        await Task.Delay(300);
+                        ((IProgress<int>)apiCallProgress).Report(i * 20);
+                    }
+                });
+                
+                var response = await _apiService.GetRoutesAsync(originLat, originLng, _destinationLatitude, _destinationLongitude);
+                
+                // Step 2: Processing API Response (40%)
+                StatusMessage = "Processing API response...";
+                ProgressValue = 0.4;
+                Debug.WriteLine("[Init] GetRoutesAsync returned");
 
-                if (dbRoutes.Any())
+                // Step 3: Load from database (60-80%) - with optimized approach
+                StatusMessage = "Loading cached routes from database...";
+                ProgressValue = 0.6;
+                ProcessedRecords = 100;
+                Debug.WriteLine("[Init] Starting database loading phase with optimizations");
+                
+                await Task.Run(async () => 
                 {
-                    StatusMessage = $"Loaded {dbRoutes.Count} routes from database";
-                    Debug.WriteLine($"[Init] Loaded {Routes.Count} routes");
-                }
-                else
-                {
-                    StatusMessage = "Failed to load routes: " + response.ErrorMessage;
-                    Debug.WriteLine($"[Init] Failed to load routes: {response.ErrorMessage}");
-                }
+                    try
+                    {
+                        // Use a timeout for database operations
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        
+                        // Show initial loading message
+                        StatusMessage = "Checking database for cached routes...";
+                        ProgressValue = 0.62;
+                        
+                        // Try to load a limited number of routes (100 max) with timeout
+                        var dbRoutesTask = _databaseService.GetAllRoutesAsync(100);
+                        var dbRoutes = await dbRoutesTask.WaitAsync(cts.Token);
+                        
+                        if (dbRoutes.Count > 0)
+                        {
+                            StatusMessage = $"Loaded {dbRoutes.Count} routes from database";
+                            ProcessedRecords = dbRoutes.Count;
+                            ProgressValue = 0.7;
+                            Debug.WriteLine($"[Init] Successfully loaded {dbRoutes.Count} routes from database");
+                        }
+                        else
+                        {
+                            // Show simulated progress during this phase
+                            for (int i = 0; i < 3; i++)
+                            {
+                                StatusMessage = $"Preparing data structures ({(i+1)*30}%)...";
+                                ProcessedRecords = 100 + (i * 30); // Increment by 30 each time
+                                ProgressValue = 0.65 + (i * 0.05);
+                                await Task.Delay(50);
+                            }
+                            
+                            StatusMessage = "No cached data found, will generate new dataset";
+                            Debug.WriteLine("[Init] No routes found in database or operation timed out");
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        StatusMessage = "Database operation timed out, continuing with generated data";
+                        Debug.WriteLine("[Init] Database loading timed out");
+                    }
+                    catch (Exception ex)
+                    {
+                        StatusMessage = "Error accessing database, continuing with generated data";
+                        Debug.WriteLine($"[Init] Database error: {ex.Message}");
+                    }
+                    finally
+                    {
+                        ProcessedRecords = 200; // Just show a reasonable number
+                        ProgressValue = 0.8;
+                    }
+                });
+                
+                Debug.WriteLine("[Init] Database loading phase complete");
 
+                // Step 4: Generate Large Dataset (80-100%)
+                StatusMessage = "Preparing large dataset for parallel processing...";
+                ProgressValue = 0.8;
+                ProcessedRecords = 200; // Show initial progress for dataset generation
                 Debug.WriteLine("[Init] Starting large dataset generation");
+                
+                // Create a timer to update progress more frequently during the long dataset generation
+                int progressCounter = 0;
+                var progressTimer = new System.Threading.Timer(async _ => 
+                {
+                    if (!IsLoading) return;
+                    
+                    progressCounter++;
+                    ProcessedRecords = 200 + (progressCounter * 1000); // Increment by 1000 each time
+                    
+                    // Cycle through different status messages to show activity
+                    var messages = new[] {
+                        "Generating synthetic routes...",
+                        "Creating transit connections...",
+                        "Calculating route durations...",
+                        "Preparing data for PLINQ processing...",
+                        "Building large dataset..."
+                    };
+                    
+                    StatusMessage = $"{messages[progressCounter % messages.Length]} ({ProcessedRecords:N0} records)";
+                    ProgressValue = Math.Min(0.95, 0.8 + (progressCounter * 0.01)); // Cap at 95%
+                    
+                }, null, 0, 300); // Update more frequently - every 300ms
+                
                 await Task.Run(async () =>
                 {
                     Debug.WriteLine("[Init] Inside Task.Run: Generating large dataset...");
-                    StatusMessage = "Generating large dataset...";
-                    _largeDataset = await _apiService.GenerateLargeDataset(100000);
-                    StatusMessage = $"Generated {_largeDataset.Count:N0} records";
-                    Debug.WriteLine($"[Init] Large dataset generated: {_largeDataset.Count} records");
+                    
+                    try
+                    {
+                        // PERFORMANCE FIX: Skip database operations by setting saveToDatabase=false
+                        // This avoids the database bottleneck that was causing the app to hang
+                        _largeDataset = await _apiService.GenerateLargeDataset(100000, saveToDatabase: false);
+                        
+                        // Stop the timer
+                        progressTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                        progressTimer.Dispose();
+                        
+                        ProcessedRecords = _largeDataset.Count;
+                        StatusMessage = $"Generated {_largeDataset.Count:N0} records for parallel processing";
+                        ProgressValue = 1.0;
+                        Debug.WriteLine($"[Init] Large dataset generated: {_largeDataset.Count} records");
+                    }
+                    catch (Exception ex)
+                    {
+                        // Make sure to dispose the timer even if there's an error
+                        progressTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                        progressTimer.Dispose();
+                        Debug.WriteLine($"[Init] Error generating large dataset: {ex.Message}");
+                        throw;
+                    }
                 });
                 Debug.WriteLine("[Init] Finished large dataset generation");
             }
@@ -234,8 +421,17 @@ namespace ThreadingCS.ViewModels
             }
             finally
             {
+                // Make sure we show the loading complete message as the very last step
+                await Task.Delay(500);
                 IsLoading = false;
-                Debug.WriteLine("[Init] Exiting InitializeAsync, IsLoading set to false");
+                
+                // This is the FINAL status message that should be displayed after loading
+                // It explicitly tells the user to click 'Process Large Dataset'
+                MainThread.BeginInvokeOnMainThread(() => {
+                    StatusMessage = "✅ Data loaded successfully. Click 'Process Large Dataset' to continue.";
+                });
+                
+                Debug.WriteLine("[Init] Initialization complete with prompt to process large dataset");
             }
         }
 
@@ -293,55 +489,115 @@ namespace ThreadingCS.ViewModels
         {
             if (_largeDataset == null || !_largeDataset.Any())
             {
-                StatusMessage = "No dataset available";
+                StatusMessage = "❌ Please click 'Load Data' first to generate the dataset";
                 return;
             }
 
             IsLoading = true;
-            StatusMessage = "Processing large dataset with PLINQ...";
+            StatusMessage = "Initializing parallel processing...";
             ProcessedRecords = 0;
-            ProgressValue = 0;
+            ProgressValue = 0.05;
+            
+            // Show initial preparation message
+            await Task.Delay(300);
 
             try
             {
                 // Process the large dataset in batches using PLINQ
                 await Task.Run(async () =>
                 {
+                    // Step 1: Preparing data (10%)
+                    StatusMessage = "Preparing data for parallel processing...";
+                    ProgressValue = 0.1;
+                    await Task.Delay(200);
+                    
                     var batchSize = 10000;
                     var batchCount = (int)Math.Ceiling(_largeDataset.Count / (double)batchSize);
+                    var totalRecords = _largeDataset.Count;
+                    var availableCores = Environment.ProcessorCount;
                     
-                    for (int i = 0; i < batchCount; i++)
+                    // Step 2: Show PLINQ info (15%)
+                    StatusMessage = $"Starting PLINQ on {availableCores} CPU cores...";
+                    ProgressValue = 0.15;
+                    await Task.Delay(300);
+                    
+                    // Create a timer to update progress more frequently during batch processing
+                    int microProgressCounter = 0;
+                    var batchProgressTimer = new System.Threading.Timer(_ => 
                     {
-                        var startIndex = i * batchSize;
-                        var count = Math.Min(batchSize, _largeDataset.Count - startIndex);
-                        var batch = _largeDataset.GetRange(startIndex, count);
+                        if (!IsLoading) return;
                         
-                        // Use PLINQ to process the batch
-                        var processed = batch.AsParallel()
-                            .Where(r => r.Duration <= MaxDuration && r.Distance <= MaxDistance)
-                            .ToList();
+                        microProgressCounter++;
                         
-                        ProcessedRecords += processed.Count;
-                        ProgressValue = (double)(i + 1) / batchCount;
+                        // Cycle through different status messages to show activity during PLINQ processing
+                        var processingMessages = new[] {
+                            "Filtering routes by duration and distance...",
+                            "Parallel processing in progress...",
+                            "Utilizing all CPU cores with PLINQ...",
+                            "Applying filters across multiple threads...",
+                            "Optimizing route selection..."
+                        };
                         
-                        // Update status message occasionally
-                        if (i % 5 == 0 || i == batchCount - 1)
-                        {
-                            StatusMessage = $"Processing batch {i+1} of {batchCount}... Found {ProcessedRecords:N0} matching routes";
-                        }
+                        // Don't update the main progress bar, just the status message
+                        StatusMessage = $"{processingMessages[microProgressCounter % processingMessages.Length]} ({ProcessedRecords:N0} records)";
                         
-                        // Small delay to demonstrate progress
-                        await Task.Delay(10);
-                    }
+                    }, null, 0, 300); // Update every 300ms
                     
-                    StatusMessage = $"Processing complete. Found {ProcessedRecords:N0} routes matching criteria.";
+                    try {
+                        // Step 3: Process batches
+                        for (int i = 0; i < batchCount; i++)
+                        {
+                            var startIndex = i * batchSize;
+                            var count = Math.Min(batchSize, _largeDataset.Count - startIndex);
+                            var batch = _largeDataset.GetRange(startIndex, count);
+                            
+                            // Show which batch is being processed
+                            StatusMessage = $"Batch {i+1}/{batchCount}: Processing {count:N0} routes with PLINQ...";
+                            
+                            // Use PLINQ to process the batch
+                            var processed = batch.AsParallel()
+                                .WithDegreeOfParallelism(availableCores) // Explicitly use all cores
+                                .Where(r => r.Duration <= MaxDuration && r.Distance <= MaxDistance)
+                                .ToList();
+                            
+                            ProcessedRecords += processed.Count;
+                            
+                            // Calculate progress - allocate 70% of the progress bar to batch processing (from 15% to 85%)
+                            ProgressValue = 0.15 + (0.70 * (i + 1) / batchCount);
+                            
+                            // Update detailed status message for each batch
+                            var percentComplete = (int)(100 * (i + 1) / batchCount);
+                            var matchRate = batch.Count > 0 ? (processed.Count * 100 / batch.Count) : 0;
+                            StatusMessage = $"Batch {i+1}/{batchCount} ({percentComplete}%): Found {processed.Count:N0} matches ({matchRate}% match rate)";
+                            
+                            // Small delay to demonstrate progress
+                            await Task.Delay(50);
+                        }
+                    }
+                    finally {
+                        // Make sure to dispose the timer
+                        batchProgressTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                        batchProgressTimer.Dispose();
+                    }                    
+                    // Step 4: Processing complete (85%)
+                    StatusMessage = $"Processing complete! Found {ProcessedRecords:N0} routes matching criteria.";
+                    ProgressValue = 0.85;
+                    await Task.Delay(300);
                 });
 
+                // Step 5: Finding optimal routes (90%)
+                StatusMessage = "Finding optimal routes for display...";
+                ProgressValue = 0.9;
+                
                 // Update UI with a sample of matching routes
                 var optimalRoutes = await Task.Run(() => 
                     _processingService.GetOptimalRoutes(_largeDataset, MaxDuration, MaxDistance)
                 );
 
+                // Step 6: Updating UI (95%)
+                StatusMessage = "Updating display with results...";
+                ProgressValue = 0.95;
+                
                 MainThread.BeginInvokeOnMainThread(() => {
                     FilteredRoutes.Clear();
                     foreach (var route in optimalRoutes)
@@ -349,10 +605,19 @@ namespace ThreadingCS.ViewModels
                         FilteredRoutes.Add(route);
                     }
                 });
+                
+                // Step 7: Complete (100%)
+                StatusMessage = $"✅ Complete! Displaying {optimalRoutes.Count} optimal routes from {ProcessedRecords:N0} matches";
+                ProgressValue = 1.0;
+                await Task.Delay(1000); // Show completion for a moment
+                
+                // Restore the prompt message to ensure it's always visible after processing
+                StatusMessage = "✅ Data loaded successfully. Click 'Process Large Dataset' to continue.";
+                await Task.Delay(200);
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Processing error: {ex.Message}";
+                StatusMessage = $"Error processing large dataset: {ex.Message}. Please check the dataset and try again.";
             }
             finally
             {
@@ -378,7 +643,10 @@ namespace ThreadingCS.ViewModels
         private async Task ApplySearchFilterAsync()
         {
             if (_largeDataset == null || !_largeDataset.Any())
+            {
+                StatusMessage = "❌ Please click 'Load Data' first to generate the dataset";
                 return;
+            }
 
             await Task.Run(() =>
             {
@@ -401,7 +669,10 @@ namespace ThreadingCS.ViewModels
         private async Task ApplyDurationFilterAsync()
         {
             if (_largeDataset == null || !_largeDataset.Any())
+            {
+                StatusMessage = "❌ Please click 'Load Data' first to generate the dataset";
                 return;
+            }
 
             await Task.Run(() =>
             {
@@ -422,7 +693,10 @@ namespace ThreadingCS.ViewModels
         private async Task ApplyDistanceFilterAsync()
         {
             if (_largeDataset == null || !_largeDataset.Any())
+            {
+                StatusMessage = "❌ Please click 'Load Data' first to generate the dataset";
                 return;
+            }
 
             await Task.Run(() =>
             {

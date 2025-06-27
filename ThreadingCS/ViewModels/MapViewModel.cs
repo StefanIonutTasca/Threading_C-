@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Maui;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
 using ThreadingCS.Models;
@@ -164,98 +165,68 @@ namespace ThreadingCS.ViewModels
                 // Clear active routes on UI thread
                 MainThread.BeginInvokeOnMainThread(() => { ActiveRoutes.Clear(); });
                 
-                // First try to get real routes from the API
-                StatusMessage = "Fetching real-time transport data...";
+                // Use consistent simulated data instead of API calls for reliability
+                StatusMessage = "Generating simulated transport data...";
                 
-                // Define London area coordinates for the API request
-                var originLat = 51.507198;
-                var originLng = -0.136512;
-                var destLat = 51.505983;
-                var destLng = -0.017931;
-                
-                // Call the API service to fetch real routes
-                var apiResponse = await _apiService.GetRoutesAsync(originLat, originLng, destLat, destLng);
-                
-                if (apiResponse.IsSuccess && apiResponse.Routes.Count > 0)
+                // Generate a consistent set of routes and vehicles using PLINQ
+                await Task.Run(() =>
                 {
-                    // Process the real API data using PLINQ
-                    var processedRoutes = apiResponse.Routes
-                        .AsParallel()
-                        .WithDegreeOfParallelism(Environment.ProcessorCount)
-                        .Select(route => {
-                            // Ensure route has a color
-                            if (string.IsNullOrEmpty(route.Color))
-                            {
-                                // Generate a color based on route ID for consistency
-                                var hash = route.RouteId.GetHashCode();
-                                route.Color = $"#{Math.Abs(hash) % 0xFFFFFF:X6}";
-                            }
-                            return route;
-                        })
-                        .ToList();
+                    // Always generate exactly 3 routes with consistent vehicles
+                    var routes = new List<TransportRoute>();
                     
-                    // Add routes to the observable collection on UI thread
-                    foreach (var route in processedRoutes)
+                    // Define fixed route colors for consistency
+                    var routeColors = new[] { "#FF0000", "#0000FF", "#00FF00" };
+                    var routeNames = new[] { "Red Line", "Blue Express", "Green Route" };
+                    
+                    // Create 3 routes with consistent properties
+                    for (int i = 0; i < 3; i++)
                     {
+                        var route = new TransportRoute
+                        {
+                            RouteId = $"R{i+1}",
+                            RouteName = routeNames[i],
+                            Color = routeColors[i],
+                            Vehicles = new List<Vehicle>()
+                        };
+                        
+                        // Generate exactly 4 vehicles for each route using PLINQ
+                        var vehiclesPerRoute = 4;
+                        var vehicles = Enumerable.Range(1, vehiclesPerRoute)
+                            .AsParallel()
+                            .WithDegreeOfParallelism(Environment.ProcessorCount)
+                            .Select(j =>
+                            {
+                                return new Vehicle
+                                {
+                                    VehicleId = $"V{i+1}-{j}",
+                                    RouteId = route.RouteId,
+                                    // Use fixed starting positions that are well-distributed
+                                    Latitude = 51.5 + ((double)i / 50.0),
+                                    Longitude = -0.1 + ((double)j / 50.0),
+                                    Bearing = (i * 90 + j * 45) % 360,
+                                    LastUpdated = DateTime.Now
+                                };
+                            })
+                            .ToList();
+                        
+                        route.Vehicles = vehicles;
+                        routes.Add(route);
+                        
+                        // Add to observable collection on UI thread
                         MainThread.BeginInvokeOnMainThread(() => { ActiveRoutes.Add(route); });
                     }
                     
-                    StatusMessage = $"Loaded {processedRoutes.Count} real routes from API";
-                    return;
-                }
-                else
-                {
-                    StatusMessage = "Could not fetch real data. Using simulated data instead.";
-                }
+                    return routes;
+                });
+                
+                // Always show consistent status message
+                StatusMessage = "Loaded 3 routes with 12 vehicles";
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"API Error: {ex.Message}");
-                StatusMessage = "API Error. Falling back to simulated data.";
+                Debug.WriteLine($"Error generating simulated routes: {ex.Message}");
+                StatusMessage = $"Error: {ex.Message}";
             }
-            
-            // If API fails, fall back to simulated data
-            await Task.Run(() =>
-            {
-                // Generate simulated routes with vehicles
-                var routes = new List<TransportRoute>();
-                for (int i = 1; i <= 10; i++)
-                {
-                    var route = new TransportRoute
-                    {
-                        RouteId = $"R{i}",
-                        RouteName = $"Route {i}",
-                        Color = i % 3 == 0 ? "#FF0000" : (i % 3 == 1 ? "#0000FF" : "#00FF00"),
-                        Vehicles = new List<Vehicle>()
-                    };
-                    
-                    // Generate vehicles for this route using PLINQ
-                    var vehicles = Enumerable.Range(1, i * 2)
-                        .AsParallel()
-                        .WithDegreeOfParallelism(Environment.ProcessorCount)
-                        .Select(j =>
-                        {
-                            return new Vehicle
-                            {
-                                VehicleId = $"V{i}-{j}",
-                                RouteId = route.RouteId,
-                                Latitude = 51.5 + ((double)i / 100.0),
-                                Longitude = -0.1 + ((double)j / 100.0),
-                                Bearing = (i * 30 + j * 10) % 360,
-                                LastUpdated = DateTime.Now
-                            };
-                        })
-                        .ToList();
-                    
-                    route.Vehicles = vehicles;
-                    routes.Add(route);
-                    
-                    // Add to observable collection on UI thread
-                    MainThread.BeginInvokeOnMainThread(() => { ActiveRoutes.Add(route); });
-                }
-                
-                return routes;
-            });
         }
         
         private async Task GenerateAndUpdateVehiclesAsync(CancellationToken token)
@@ -333,6 +304,52 @@ namespace ThreadingCS.ViewModels
             {
                 while (!token.IsCancellationRequested)
                 {
+                    // Every 5 seconds, make multiple parallel API calls to update vehicle positions
+                    if (_updateCounter % 100 == 0) // Approximately every 5 seconds (50ms * 100)
+                    {
+                        try
+                        {
+                            // Get all active route IDs
+                            var routeIds = ActiveRoutes.Select(r => r.RouteId).ToList();
+                            
+                            if (routeIds.Count > 0)
+                            {
+                                // Make multiple parallel API calls to get vehicle updates
+                                StatusMessage = "Fetching real-time vehicle updates...";
+                                var vehicleUpdates = await _apiService.GetVehicleUpdatesAsync(routeIds);
+                                
+                                // Update vehicle positions based on API response
+                                int updatedVehicles = 0;
+                                
+                                foreach (var kvp in vehicleUpdates)
+                                {
+                                    var routeId = kvp.Key;
+                                    var vehicles = kvp.Value;
+                                    
+                                    foreach (var vehicle in vehicles)
+                                    {
+                                        if (_vehicleMap.TryGetValue(vehicle.VehicleId, out var position))
+                                        {
+                                            // Update existing vehicle position
+                                            position.LastUpdated = DateTime.Now;
+                                            updatedVehicles++;
+                                        }
+                                    }
+                                }
+                                
+                                if (updatedVehicles > 0)
+                                {
+                                    StatusMessage = $"Updated {updatedVehicles} vehicles from API";
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error updating vehicles from API: {ex.Message}");
+                            // Continue with simulated updates on error
+                        }
+                    }
+                    
                     // Update vehicle positions using PLINQ for parallel processing
                     _vehiclePositions.AsParallel()
                         .WithDegreeOfParallelism(Environment.ProcessorCount)

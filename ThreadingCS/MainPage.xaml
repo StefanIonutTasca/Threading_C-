@@ -20,6 +20,18 @@
                 <Setter Property="Padding" Value="15,10" />
                 <Setter Property="CornerRadius" Value="5" />
             </Style>
+            
+            <!-- Style for status message -->
+            <Style x:Key="StatusMessageStyle" TargetType="Label">
+                <Setter Property="TextColor" Value="#666666" />
+                <Style.Triggers>
+                    <DataTrigger TargetType="Label" Binding="{Binding StatusMessage}" Value="❌ PLEASE CLICK LOAD DATA FIRST">
+                        <Setter Property="TextColor" Value="Red" />
+                        <Setter Property="FontSize" Value="18" />
+                        <Setter Property="FontAttributes" Value="Bold" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
         </ResourceDictionary>
     </ContentPage.Resources>
 
@@ -34,28 +46,31 @@
             <Label Text="A multi-threaded real-time transport tracking application"
                    Style="{StaticResource SubHeadline}"
                    HorizontalOptions="Center" />
-
+            
+            <!-- Origin Input Section -->
             <Frame Style="{StaticResource CardStyle}">
                 <StackLayout>
-                    <Label Text="Status" FontAttributes="Bold" />
-                    <Label Text="{Binding StatusMessage}" TextColor="#666666" />
-                    
-                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto" Margin="0,10,0,0">
-                        <ProgressBar Grid.Column="0" Progress="{Binding ProgressValue}" />
-                        <Label Grid.Column="1" Text="{Binding ProcessedRecords, StringFormat='{0:N0} records'}" />
+                    <Label Text="Origin Coordinates" FontAttributes="Bold" />
+                    <Label Text="Default: Amsterdam Centraal Station" TextColor="#666666" FontSize="Small" Margin="0,0,0,5" />
+                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" RowSpacing="10" ColumnSpacing="10">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Latitude:" VerticalOptions="Center" />
+                        <Entry Grid.Row="0" Grid.Column="1" Text="{Binding OriginLatitude, Mode=TwoWay}" Placeholder="e.g. 52.3738" Keyboard="Numeric" />
+                        <Label Grid.Row="1" Grid.Column="0" Text="Longitude:" VerticalOptions="Center" />
+                        <Entry Grid.Row="1" Grid.Column="1" Text="{Binding OriginLongitude, Mode=TwoWay}" Placeholder="e.g. 4.8909" Keyboard="Numeric" />
                     </Grid>
                 </StackLayout>
             </Frame>
-            
+
             <!-- Destination Input Section -->
             <Frame Style="{StaticResource CardStyle}">
                 <StackLayout>
-                    <Label Text="Destination Coordinates" FontAttributes="Bold" />
+                    <Label Text="Destination Coordinates" FontSize="Medium" FontAttributes="Bold" Margin="0,10,0,0" />
+                    <Label Text="Default: Amsterdam Museum Square" FontSize="Small" TextColor="#666666" Margin="0,0,0,5" />
                     <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" RowSpacing="10" ColumnSpacing="10">
                         <Label Grid.Row="0" Grid.Column="0" Text="Latitude:" VerticalOptions="Center" />
-                        <Entry Grid.Row="0" Grid.Column="1" Text="{Binding DestinationLatitude, Mode=TwoWay}" Placeholder="e.g. 51.505983" Keyboard="Numeric" />
+                        <Entry Grid.Row="0" Grid.Column="1" Text="{Binding DestinationLatitude, Mode=TwoWay}" Placeholder="e.g. 52.3584" Keyboard="Numeric" />
                         <Label Grid.Row="1" Grid.Column="0" Text="Longitude:" VerticalOptions="Center" />
-                        <Entry Grid.Row="1" Grid.Column="1" Text="{Binding DestinationLongitude, Mode=TwoWay}" Placeholder="e.g. -0.017931" Keyboard="Numeric" />
+                        <Entry Grid.Row="1" Grid.Column="1" Text="{Binding DestinationLongitude, Mode=TwoWay}" Placeholder="e.g. 4.8812" Keyboard="Numeric" />
                     </Grid>
                 </StackLayout>
             </Frame>
@@ -68,7 +83,7 @@
                         BackgroundColor="#4CAF50"
                         TextColor="White"
                         Clicked="OnLoadDataClicked"
-                        IsEnabled="{Binding IsDestinationValid}" />
+                        IsEnabled="{Binding IsCoordinatesValid}" />
                 
                 <Button Grid.Column="1" 
                         x:Name="MonitorButton"
@@ -85,6 +100,19 @@
                     TextColor="White"
                     Clicked="OnProcessLargeDatasetClicked" />
             
+            <!-- Status Section -->
+            <Frame Style="{StaticResource CardStyle}">
+                <StackLayout>
+                    <Label Text="Status" FontAttributes="Bold" />
+                    <Label Text="{Binding StatusMessage}" Style="{StaticResource StatusMessageStyle}" />
+                    
+                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto" Margin="0,10,0,0">
+                        <ProgressBar Grid.Column="0" Progress="{Binding ProgressValue}" />
+                        <Label Grid.Column="1" Text="{Binding ProcessedRecords, StringFormat='{0:N0} records'}" />
+                    </Grid>
+                </StackLayout>
+            </Frame>
+            
             <!-- Filters Section -->
             <Frame Style="{StaticResource CardStyle}">
                 <StackLayout>
@@ -94,11 +122,11 @@
                         <Label Grid.Row="0" Grid.Column="0" Text="Search:" VerticalOptions="Center" />
                         <Entry Grid.Row="0" Grid.Column="1" Text="{Binding SearchTerm}" Placeholder="Enter route name..." />
                         
-                        <Label Grid.Row="1" Grid.Column="0" Text="Max Duration:" VerticalOptions="Center" />
-                        <Slider Grid.Row="1" Grid.Column="1" Minimum="10" Maximum="120" Value="{Binding MaxDuration}" />
+                        <Label Grid.Row="1" Grid.Column="0" Text="Max Duration (min):" VerticalOptions="Center" />
+                        <Slider Grid.Row="1" Grid.Column="1" Minimum="60" Maximum="1440" Value="{Binding MaxDuration}" />
                         
-                        <Label Grid.Row="2" Grid.Column="0" Text="Max Distance:" VerticalOptions="Center" />
-                        <Slider Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="30" Value="{Binding MaxDistance}" />
+                        <Label Grid.Row="2" Grid.Column="0" Text="Max Distance (km):" VerticalOptions="Center" />
+                        <Slider Grid.Row="2" Grid.Column="1" Minimum="100" Maximum="5000" Value="{Binding MaxDistance}" />
                     </Grid>
                 </StackLayout>
             </Frame>
@@ -147,10 +175,17 @@
         
         <!-- Loading Overlay -->
         <Grid Grid.RowSpan="2" IsVisible="{Binding IsLoading}" BackgroundColor="#80000000">
-            <StackLayout VerticalOptions="Center" HorizontalOptions="Center">
-                <ActivityIndicator IsRunning="True" Color="White" />
-                <Label Text="Loading..." TextColor="White" Margin="0,10,0,0" />
-            </StackLayout>
+            <Frame BackgroundColor="#333333" BorderColor="#555555" CornerRadius="10" 
+                   Margin="20" Padding="20" VerticalOptions="Center" HorizontalOptions="Center">
+                <StackLayout Spacing="15">
+                    <Label Text="Processing" TextColor="White" FontSize="18" FontAttributes="Bold" HorizontalOptions="Center" />
+                    <ActivityIndicator IsRunning="True" Color="#4CAF50" HeightRequest="50" WidthRequest="50" />
+                    <Label Text="{Binding StatusMessage}" TextColor="White" FontSize="16" HorizontalOptions="Center" />
+                    <ProgressBar Progress="{Binding ProgressValue}" HeightRequest="10" ProgressColor="#4CAF50" />
+                    <Label Text="{Binding ProcessedRecords, StringFormat='{0:N0} records processed'}" 
+                           TextColor="#CCCCCC" HorizontalOptions="Center" />
+                </StackLayout>
+            </Frame>
         </Grid>
         </Grid>
     </ScrollView>

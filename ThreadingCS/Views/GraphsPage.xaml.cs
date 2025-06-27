@@ -17,7 +17,7 @@ namespace ThreadingCS.Views
         protected override void OnAppearing()
         {
             base.OnAppearing();
-            _viewModel.SetBarChartContainer(BarChartContainer);
+            _viewModel.SetBarChartContainer(ChartContainer);
         }
 
         private async void OnGenerateDataClicked(object sender, EventArgs e)

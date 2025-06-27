@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using ThreadingCS.Models;
 
@@ -17,10 +18,10 @@ namespace ThreadingCS.Services
         private const string ApiHost = "busmaps-gtfs-api.p.rapidapi.com";
         private readonly DatabaseService _databaseService;
         
-        public TransportApiService()
+        public TransportApiService(DatabaseService databaseService = null)
         {
             _client = new HttpClient();
-            _databaseService = new DatabaseService();
+            _databaseService = databaseService ?? new DatabaseService();
         }
 
         public async Task<TransportApiResponse> GetRoutesAsync(double originLat, double originLng, double destLat, double destLng, bool useCache = true)
@@ -169,7 +170,92 @@ namespace ThreadingCS.Services
             }
         }
                 
-
+        // Get real-time vehicle updates for multiple routes in parallel
+        public async Task<Dictionary<string, List<Vehicle>>> GetVehicleUpdatesAsync(List<string> routeIds)
+        {
+            var results = new Dictionary<string, List<Vehicle>>();
+            
+            // Create a list of tasks for parallel API calls
+            var tasks = new List<Task<(string RouteId, List<Vehicle> Vehicles)>>();
+            
+            foreach (var routeId in routeIds)
+            {
+                // Create a task for each route ID
+                tasks.Add(GetVehicleUpdatesForRouteAsync(routeId));
+            }
+            
+            // Wait for all API calls to complete
+            var updatedRoutes = await Task.WhenAll(tasks);
+            
+            // Process results
+            foreach (var (RouteId, Vehicles) in updatedRoutes)
+            {
+                results[RouteId] = Vehicles;
+            }
+            
+            return results;
+        }
+        
+        // Get vehicle updates for a single route
+        private async Task<(string RouteId, List<Vehicle> Vehicles)> GetVehicleUpdatesForRouteAsync(string routeId)
+        {
+            try
+            {
+                Debug.WriteLine($"[API] Fetching vehicle updates for route {routeId}...");
+                
+                // Construct API request URL for vehicle positions
+                var request = new HttpRequestMessage(HttpMethod.Get, 
+                    $"https://busmaps-gtfs-api.p.rapidapi.com/vehicles?route_id={routeId}");
+                
+                request.Headers.Add("x-rapidapi-key", ApiKey);
+                request.Headers.Add("x-rapidapi-host", ApiHost);
+                request.Headers.Add("Accept", "application/json");
+                
+                // Send the request
+                var response = await _client.SendAsync(request);
+                var body = await response.Content.ReadAsStringAsync();
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    // Parse the response
+                    using var jsonDoc = JsonDocument.Parse(body);
+                    var root = jsonDoc.RootElement;
+                    
+                    var vehicles = new List<Vehicle>();
+                    
+                    if (root.TryGetProperty("vehicles", out var vehiclesArray))
+                    {
+                        foreach (var vehicleElement in vehiclesArray.EnumerateArray())
+                        {
+                            var vehicle = new Vehicle
+                            {
+                                VehicleId = vehicleElement.TryGetProperty("id", out var id) ? id.GetString() : $"V-{Guid.NewGuid()}",
+                                RouteId = routeId,
+                                Latitude = vehicleElement.TryGetProperty("lat", out var lat) ? lat.GetDouble() : 0,
+                                Longitude = vehicleElement.TryGetProperty("lng", out var lng) ? lng.GetDouble() : 0,
+                                Bearing = vehicleElement.TryGetProperty("bearing", out var bearing) ? bearing.GetDouble() : 0,
+                                LastUpdated = DateTime.Now
+                            };
+                            
+                            vehicles.Add(vehicle);
+                        }
+                    }
+                    
+                    return (routeId, vehicles);
+                }
+                else
+                {
+                    Debug.WriteLine($"[API] Error fetching vehicle updates: {response.StatusCode}");
+                    // Return empty list on error
+                    return (routeId, new List<Vehicle>());
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[API] Exception in GetVehicleUpdatesForRouteAsync: {ex.Message}");
+                return (routeId, new List<Vehicle>());
+            }
+        }
 
         // Generate sample data for testing
         private List<TransportRoute> GenerateSampleRoutes(int count)
@@ -228,21 +314,10 @@ namespace ThreadingCS.Services
         public async Task<List<TransportRoute>> GenerateLargeDataset(int count = 100000, bool saveToDatabase = true)
         {
             Debug.WriteLine($"[Dataset] Entered GenerateLargeDataset with count={count}, saveToDatabase={saveToDatabase}");
-            try
-            {
-                Debug.WriteLine("[Dataset] Checking for existing data in DB via GetAllRoutesAsync");
-                var existingData = await _databaseService.GetAllRoutesAsync();
-                Debug.WriteLine($"[Dataset] Got {existingData.Count} routes from DB");
-                if (existingData.Count >= count)
-                {
-                    Debug.WriteLine($"[Dataset] Found {existingData.Count} routes in database, returning those instead of generating new ones");
-                    return existingData;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[Dataset] Error checking database for large dataset: {ex.Message}");
-            }
+            
+            // Skip database check for performance reasons
+            // This avoids the initial database query that can be slow
+            Debug.WriteLine("[Dataset] Skipping database check for performance");
 
             var routes = new List<TransportRoute>();
             var random = new Random();
@@ -282,17 +357,34 @@ namespace ThreadingCS.Services
                 Debug.WriteLine($"[Dataset] Saving {routes.Count} routes to DB via SaveLargeDatasetAsync");
                 try
                 {
-                    await _databaseService.SaveLargeDatasetAsync(routes);
-                    Debug.WriteLine($"[Dataset] Finished saving large dataset to DB");
+                    // Use a timeout for database operations
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    
+                    // Save only a subset of the data for better performance (1000 routes max)
+                    var saveTask = _databaseService.SaveLargeDatasetAsync(routes, 1000);
+                    bool success = await saveTask.WaitAsync(cts.Token);
+                    
+                    if (success)
+                    {
+                        Debug.WriteLine($"[Dataset] Successfully saved subset of large dataset to DB");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"[Dataset] Database save operation failed or timed out");
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    Debug.WriteLine($"[Dataset] Database save operation timed out after 30 seconds");
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[Dataset] Error saving large dataset to database: {ex.Message}");
                 }
-            }
-
-            Debug.WriteLine($"[Dataset] Returning generated dataset with {routes.Count} routes");
-            return routes;
         }
+
+        Debug.WriteLine($"[Dataset] Returning generated dataset with {routes.Count} routes");
+        return routes;
+    }
     }
 }
